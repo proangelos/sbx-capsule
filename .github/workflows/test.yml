@@ -1,0 +1,33 @@
+# make test on Linux and macOS, with the fake sbx (no VM in CI). The
+# Linux job also runs shellcheck, which ubuntu-latest has installed.
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash 4+ on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install bash
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+      - name: versions
+        run: |
+          bash --version | head -1
+          git --version
+          make --version | head -1
+          command -v shellcheck && shellcheck --version | sed -n 2p || true
+      - name: make test
+        run: make test
