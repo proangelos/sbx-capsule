@@ -9,6 +9,15 @@ how to migrate.
 
 ## [Unreleased]
 
+### Changed
+
+- The README's Quickstart now goes from nothing to a first sandbox: it
+  links Docker's `sbx` install guide, then adds signing in to sbx,
+  setting its network policy, turning off its SSH agent forwarding (which
+  `make run` otherwise refuses), a minimal `.env` and signing the agent in. docs/DOCKER_SANDBOXES.md also links Docker's guide
+  in place of its own `sbx` install commands. A stray heading at the end of
+  the README is gone.
+
 ### Fixed
 
 - `make test` passes shellcheck: a tracked `.shellcheckrc` lets it follow
