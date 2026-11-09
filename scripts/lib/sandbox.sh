@@ -1,3 +1,4 @@
+# shellcheck disable=SC2034  # globals set here are read by the files that source this one
 # Sandbox folders: finding them, telling clones from other folders, the
 # files create.sh generates in each, and reading them safely from the host.
 # Sourced via all.sh (after agents.sh, for AGENT_SHIMS), not executed: no
@@ -126,6 +127,7 @@ sandbox_git() {
     rm -f -- "$list" "$list.err"
     return 1
   fi
+  # shellcheck disable=SC2094  # the rm inside runs only just before return
   while IFS= read -r -d '' rec; do
     key="${rec%%$'\n'*}" name="${key#filter.}" sub="${name##*.}" name="${name%.*}"
     if [[ "$name" == *=* || "$name" == *[[:cntrl:]]* ]]; then

@@ -1,3 +1,4 @@
+# shellcheck disable=SC2034  # globals set here are read by the files that source this one
 # Output helpers: colors, die, warn, banner, safe_text.
 # Sourced via all.sh, not executed: no shebang, no `set -e`.
 

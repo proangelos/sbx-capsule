@@ -1,3 +1,4 @@
+# shellcheck disable=SC2034  # globals set here are read by the files that source this one
 # Cloning a repo into a sandbox, the banner for continuing an existing
 # origin/PUSH_AS, and the staging repos make push and make fetch work in.
 # Sourced via all.sh, not executed: no shebang, no `set -e`.

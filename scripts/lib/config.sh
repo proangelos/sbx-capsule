@@ -1,3 +1,4 @@
+# shellcheck disable=SC2034  # globals set here are read by the files that source this one
 # Loads the tool's config. Sourced first by all.sh, which sets TOOL_ROOT.
 # Sourced, not executed: no shebang, no `set -e` (would leak into the caller).
 #

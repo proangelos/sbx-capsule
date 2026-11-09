@@ -35,7 +35,8 @@ push_as_users() {
   for d in "$SANDBOX_ROOT"/*/; do
     d="${d%/}"
     [[ "$d" == "${PUSH_AS_SELF:-}" ]] && continue
-    is_sandbox_dir "$d" && is_clone "$d/$repo" || continue
+    is_sandbox_dir "$d" || continue
+    is_clone "$d/$repo" || continue
     # git exits 1, saying nothing, when nothing matches. Anything else is a
     # clone sandbox_git refused or gave up on (hostile config, a hang): that
     # sandbox is skipped with a warning rather than failing the caller.

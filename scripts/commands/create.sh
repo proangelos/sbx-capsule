@@ -74,6 +74,7 @@ requested=(${SPEC_REPOS[@]+"${SPEC_REPOS[@]}"})
 if [[ -z "${EMPTY:-}" ]]; then
   for r in ${DEFAULT_REPOS[@]+"${DEFAULT_REPOS[@]}"}; do
     [[ -v "SPEC_BRANCH[$r]" ]] && continue
+    # shellcheck disable=SC2004  # SPEC_BRANCH is associative (validate.sh); $r is a repo name
     SPEC_BRANCH[$r]=""
     requested+=("$r")
   done
@@ -279,6 +280,7 @@ fi
 # make push needs AS=<branch> when there's no PUSH_AS to push to.
 push_as_arg=""
 [[ -n "${PUSH_AS:-}" ]] || push_as_arg=" AS=<branch>"
+# shellcheck disable=SC2016  # literal backticks: Markdown code spans
 hosts="$(git_hosts ${requested[@]+"${requested[@]}"} | sed 's/.*/`&`/' | paste -sd, - | sed 's/,/, /g')"
 # Newer commits from origin, whichever the push setting: make fetch on the
 # host hands them over as a bundle. Never git run in the clone on the host.
@@ -314,6 +316,7 @@ or an editor on the host: the agent wrote each clone's git config and hooks
   the user pushes from the host."
 fi
 
+# shellcheck disable=SC2016  # literal backticks: Markdown code spans
 generated_list="$(printf '`%s`\n' "${GENERATED_FILES[@]}" | paste -sd, - | sed 's/,/, /g')"
 
 # ---- team notes (.env SANDBOX_NOTES_FILE), copied in as they are now.
