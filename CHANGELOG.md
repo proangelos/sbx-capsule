@@ -9,6 +9,13 @@ how to migrate.
 
 ## [Unreleased]
 
+### Fixed
+
+- `make test` passes shellcheck: a tracked `.shellcheckrc` lets it follow
+  each command's `source` of `scripts/lib/all.sh` and treats the sourced
+  helper and test files as bash. The intentional findings left have a
+  `# shellcheck disable=` that says why.
+
 ## [1.0.0] - YYYY-MM-DD
 
 First public release.

@@ -1,3 +1,4 @@
+# shellcheck disable=SC2034  # globals set here are read by the files that source this one
 # Docker Sandboxes (sbx) and agent helpers: VM naming and lookup, the
 # built-in agents, flags the tool manages, and the agent instruction shims.
 # Sourced via all.sh, not executed: no shebang, no `set -e`.
@@ -20,7 +21,8 @@ sbx_name() {
 # folder, and that is what keeps checkouts apart, since another checkout's
 # VMs mount its own folders.
 is_tool_vm_name() {
-  local tail="$SBX_CHECKOUT_ID-$(_sbx_part "$(basename "$2")")"
+  local tail
+  tail="$SBX_CHECKOUT_ID-$(_sbx_part "$(basename "$2")")"
   [[ "$1" == "$tail" || "$1" == *"-$tail" ]]
 }
 
@@ -157,7 +159,8 @@ tool_vms() {
   local out name status agent ws seen=$'\n'
   out="$(sbx_vms)" || return 1
   while IFS=$'\t' read -r name status agent ws _; do
-    [[ "${ws%/*}" == "$SANDBOX_ROOT" ]] && is_sandbox_name "${ws##*/}" || continue
+    [[ "${ws%/*}" == "$SANDBOX_ROOT" ]] || continue
+    is_sandbox_name "${ws##*/}" || continue
     is_tool_vm_name "$name" "$ws" || continue
     [[ "$seen" == *$'\n'"$name"$'\n'* ]] && continue
     seen+="$name"$'\n'

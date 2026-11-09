@@ -164,6 +164,7 @@ test_readme_symlink_and_fifo_on_add() {
   mk add N=1 REPO=web
   assert_no_hang "add"
   assert_eq "the host file is untouched" "$(cat "$T/host-file")" "host secret"
+  # shellcheck disable=SC2034  # read by assert_not_contains (tests/lib.sh)
   OUT="$(cat "$TOOL/1/web/README" 2>/dev/null; ls -A "$TOOL/1")"
   assert_not_contains "nothing copied from the host file" "host secret"
   rm -rf -- "$TOOL/1/web" "$TOOL/1/README.md"
@@ -268,6 +269,7 @@ test_destroy_doesnt_follow_a_symlinked_submodule_path() {
 bsd_mv() {
   local real
   real="$(command -v mv)"
+  # shellcheck disable=SC2016  # $a and $@ belong to the generated script
   printf '#!/bin/sh\nfor a; do case "$a" in --version|-T) exit 1 ;; esac; done\nexec %s "$@"\n' "$real" > "$T/bin/mv"
   chmod +x "$T/bin/mv"
 }
@@ -281,6 +283,7 @@ test_move_into_sandbox_never_follows_a_planted_symlink_without_gnu_mv() {
     echo "from staging" > "$TOOL/.staging.t/$f"
     rm -f -- "$TOOL/1/$f"
     ln -s "$host" "$TOOL/1/$f"
+    # shellcheck disable=SC2016  # $1 and $2 expand in the inner bash
     in_tool bash -c 'source scripts/lib/all.sh; move_into_sandbox "$1" "$2"' _ "$TOOL/.staging.t/$f" "$TOOL/1"
     assert_ok "$f: moved"
     assert_missing "$f: nothing landed in the host folder" "$host/$f"
@@ -289,6 +292,7 @@ test_move_into_sandbox_never_follows_a_planted_symlink_without_gnu_mv() {
   # A folder: .vscode replaced through a symlink, as make run writes it.
   rm -rf -- "$TOOL/1/.vscode"
   ln -s "$host" "$TOOL/1/.vscode"
+  # shellcheck disable=SC2016  # $1 and $2 expand in the inner bash
   in_tool bash -c 'source scripts/lib/all.sh; ensure_vscode_dir "$1"' _ "$TOOL/1"
   assert_ok ".vscode: written"
   assert_missing ".vscode: nothing landed in the host folder" "$host/settings.json"
