@@ -27,6 +27,7 @@ before changing behaviour.
 Makefile                 entry point: make init / doctor / new / run / code / stop / prune / add / fetch / push / destroy / list / help / test
 .env.default             tracked tool defaults (users override in .env, never edit this)
 .env.example             annotated template for a user's .env
+.shellcheckrc            shellcheck settings for make test: follow sources from each script's directory, sourced files are bash
 scripts/
 ├── commands/            one executable per make target
 │   ├── create.sh        make new: validate, clone, write the sandbox's README/AGENTS/shims and .state/<n>/push_as
@@ -152,7 +153,8 @@ doing a task. Keep repo/branch detail in the sandbox `README.md` and have its
 Before calling a change done:
 
 1. `make test` passes. It checks that every script parses, runs
-   `shellcheck -x` if it's installed, then runs `tests/*.test.sh`
+   `shellcheck -x` if it's installed (settings in `.shellcheckrc`; CI
+   runs it on Linux, so it must come back clean), then runs `tests/*.test.sh`
    (`tests/run.sh`): each test gets a scratch copy of the tool, a
    throwaway source repo and a fake `sbx` (`tests/fake-sbx/sbx`), so it
    needs no VM and never touches a real `.env` or sandbox. Add tests for

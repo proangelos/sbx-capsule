@@ -89,7 +89,8 @@ check_repo_paths() {
   for r in "${!REPOS[@]}"; do
     [[ -n "${REPOS[$r]}" ]] || continue
     src="$(_canon "${REPOS[$r]}")"
-    _is_within "$src" "$root" && [[ "$src" != "$root" ]] || continue
+    _is_within "$src" "$root" || continue
+    [[ "$src" != "$root" ]] || continue
     rel="${src#"$root"/}"
     if is_sandbox_name "${rel%%/*}"; then
       PROBLEMS+=("REPOS[$r] ($src) is inside sandbox folder ${rel%%/*}, which its VM can write -- point it at your own checkout, outside $root")

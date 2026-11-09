@@ -73,6 +73,7 @@ staging="$(mktemp -d "$SANDBOX_ROOT/.staging.XXXXXX")"
 trap 'rm -rf -- "$staging"' EXIT
 
 # git on the staging repo: yours and the tool's config only; the pager off.
+# shellcheck disable=SC2209  # GIT_PAGER=cat is an env prefix for git, not an assignment
 staging_git() { GIT_PAGER=cat git -C "$staging/fetch.git" "$@"; }
 
 # write_bundle <file> <tip refs> <haves>  -- a v2 bundle (gitformat-bundle):
@@ -83,6 +84,7 @@ staging_git() { GIT_PAGER=cat git -C "$staging/fetch.git" "$@"; }
 write_bundle() {
   local out="$1" tips="$2" haves="$3" revs
   revs="$(cut -d' ' -f1 <<< "$tips")"
+  # shellcheck disable=SC2001  # prefixes every line; sed says so more plainly
   [[ -z "$haves" ]] || revs+=$'\n'"$(sed 's/^/^/' <<< "$haves")"
   {
     echo '# v2 git bundle'

@@ -31,9 +31,12 @@ to people. In short:
    `scripts/lib/`, validate everything before changing anything, report every
    problem at once.
 2. Test: `make test` (syntax, `shellcheck` if you have it, and the test
-   suite, which needs no `sbx`), with new tests for what you changed. If
-   you changed `make run` or `make code`, also try them against real `sbx`
-   in a scratch copy of the repo (see "Testing" in [AGENTS.md](AGENTS.md)).
+   suite, which needs no `sbx`), with new tests for what you changed.
+   CI runs shellcheck, so install it locally to catch findings before you
+   push; silence one only with a narrow `# shellcheck disable=` that says
+   why. If you changed `make run` or `make code`, also try them against
+   real `sbx` in a scratch copy of the repo (see "Testing" in
+   [AGENTS.md](AGENTS.md)).
 3. Update the docs: [README.md](README.md) for anything users see,
    [docs/DESIGN.md](docs/DESIGN.md) for design changes.
 4. Add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md),
