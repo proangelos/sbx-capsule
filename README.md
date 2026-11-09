@@ -105,33 +105,76 @@ to fix whatever is missing.
 
 ## Quickstart
 
+From nothing to a first sandbox. Steps 1 and 2 are once per machine; 3 and
+4 are per task. The rest of what you need is under
+[Requirements](#requirements).
+
+**1. Install and set up Docker Sandboxes (`sbx`).**
+
+Refer to [Docker's install guide](https://docs.docker.com/ai/sandboxes/install/)
+for up-to-date installation instructions. Then:
+
+```sh
+sbx login
+sbx policy init balanced           # allow-list network policy
+
+# The agent commits and you push, so keep your SSH keys out of its VM.
+# sbx forwards them by default, and make run refuses until this is off
+# (see "Letting the agent push").
+sbx settings set ssh.agentForwardingEnabled false
+sbx daemon restart
+```
+
+**2. Get the tool and describe your repos.**
+
 ```sh
 git clone <this repo> ~/dev/sbx-capsule
 cd ~/dev/sbx-capsule
+make init                          # creates .env, checks your tools (installs nothing)
+$EDITOR .env                       # your repos, as below
+make doctor                        # checks everything, repos included; fix what it flags
+```
 
-# 1. Create your .env and check your tools (installs nothing).
-make init
-$EDITOR .env                       # your repos: REPOS paths and SOURCE_BRANCHES
-make doctor                        # checks your repos too; fix anything it flags
+At minimum, `.env` names each repo's local checkout and the branch
+sandboxes start from (more in [Configuration](#configuration-your-env)):
 
-# 2. Make a sandbox with the repos this task needs.
-make new WITH="api web" TITLE=login-fix PUSH_AS=fix/login
+```bash
+declare -A REPOS=(
+  [api]="$HOME/dev/api"
+  [web]="$HOME/dev/web"
+)
+declare -A SOURCE_BRANCHES=(
+  [api]="main"
+  [web]="develop"
+)
+```
 
-# 3. Start the agent on it, in a Docker Sandbox VM.
-make run N=1                       # run again later to reattach
+**3. Make a sandbox and start the agent on it.**
 
-# 4. Review inside the VM, then push from the host (see "Reviewing and editing
-#    a sandbox"), or let the agent push (see "Letting the agent push").
-make code N=1                      # VS Code running inside the VM
-make push N=1 REPO="api web"       # shows the commits, asks, pushes to fix/login
-
-# 5. Tear it down. Refuses if any repo has unsaved work.
-make destroy N=1
+```sh
+make new WITH="api web" TITLE=login-fix PUSH_AS=fix/login   # prints the sandbox's number
+make run N=1                       # the agent, in the sandbox's VM; run again to reattach
 ```
 
 The first `make run` for an agent pulls its image (a couple of minutes for
-Claude); later VMs start in seconds. Sign the agent in once (see
-[Choosing an agent](#choosing-an-agent)) and every new sandbox inherits it.
+Claude); later VMs start in seconds. Sign the agent in once and every new
+sandbox inherits it: `/login` inside the VM for Claude, `sbx secret set
+<service>` on the host for most others (see
+[Choosing an agent](#choosing-an-agent)).
+
+**4. Review, push, tear down.**
+
+```sh
+make code N=1                      # VS Code running inside the VM (one-time setup below)
+make push N=1 REPO="api web"       # shows the commits, asks, pushes to fix/login
+make destroy N=1                   # refuses if any repo has unsaved work
+```
+
+Review inside the VM, never with git or an editor on the host: `make code`
+needs [a one-time setup](#one-time-setup-for-make-code), or use a shell in
+the VM (see [Reviewing and editing a sandbox](#reviewing-and-editing-a-sandbox)).
+To have the agent push instead, see
+[Letting the agent push](#letting-the-agent-push).
 
 ## Commands
 
@@ -612,7 +655,7 @@ More `sbx` behaviour worth knowing is in
 
 ## Further reading
 
-- [docs/DOCKER_SANDBOXES.md](docs/DOCKER_SANDBOXES.md) -- installing `sbx`,
+- [docs/DOCKER_SANDBOXES.md](docs/DOCKER_SANDBOXES.md) -- setting up `sbx`,
   how it and this tool fit together, and `sbx` quirks.
 - [docs/DESIGN.md](docs/DESIGN.md) -- why the tool works the way it does.
 - [CHANGELOG.md](CHANGELOG.md) -- release notes.
@@ -627,4 +670,3 @@ and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 ## License
 
 [MIT](LICENSE)
-# sbx-capsule

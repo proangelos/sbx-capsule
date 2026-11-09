@@ -29,14 +29,9 @@ Mounting each source repo's `.git` as well would make git work, but it would hav
 
 ## Setup
 
-Supported hosts are macOS, Windows 11 and Ubuntu 24.04+ (see [install](https://docs.docker.com/ai/sandboxes/install/)).
-
-**Linux, including WSL (Ubuntu 24.04):**
+Supported hosts are macOS, Windows 11 and Ubuntu 24.04+. Refer to [Docker's install guide](https://docs.docker.com/ai/sandboxes/install/) for up-to-date installation instructions. Once `sbx` is installed:
 
 ```bash
-sudo usermod -aG kvm $USER   # then log in again (or restart the WSL shell)
-curl -fsSL https://get.docker.com | sudo REPO_ONLY=1 sh   # adds Docker's apt repo only
-sudo apt install docker-sbx
 sbx login
 sbx policy init balanced     # allow-list network policy
 sbx diagnose                 # checks KVM, storage, the binary
@@ -45,15 +40,6 @@ sbx diagnose                 # checks KVM, storage, the binary
 Then, from this repo, `make doctor` runs `sbx diagnose` for you along with the tool's own checks.
 
 `sbx` runs its own VMs and doesn't use the host's Docker Engine, so an existing Docker install stays as it is. On WSL, don't also turn on Docker Desktop's WSL integration for the same distro, since both would claim `/var/run/docker.sock`. WSL isn't an officially listed platform, but it works with `/dev/kvm` available. Windows `sbx` is the fallback: there, repos mount as `\\wsl.localhost\...` paths and git needs a `safe.directory` entry ([troubleshooting](https://docs.docker.com/ai/sandboxes/troubleshooting/)).
-
-**Windows (PowerShell):**
-
-```powershell
-# elevated, once:
-Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All
-winget install -h Docker.sbx
-sbx login
-```
 
 **Signing in the agent.** You do this once per agent, not per sandbox:
 
