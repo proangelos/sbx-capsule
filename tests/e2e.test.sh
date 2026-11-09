@@ -168,6 +168,7 @@ test_old_git_is_warned_about() {
   mk new
   local real
   real="$(command -v git)"
+  # shellcheck disable=SC2016  # $1 and $@ belong to the generated script
   printf '#!/bin/sh\n[ "$1" = --version ] && { echo "git version 2.29.2"; exit 0; }\nexec "%s" "$@"\n' "$real" > "$T/bin/git"
   chmod +x "$T/bin/git"
   mk destroy N=1

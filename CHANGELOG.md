@@ -9,7 +9,14 @@ how to migrate.
 
 ## [Unreleased]
 
-## [1.0.0] - YYYY-MM-DD
+### Fixed
+
+- `make test` passes shellcheck: a tracked `.shellcheckrc` lets it follow
+  each command's `source` of `scripts/lib/all.sh` and treats the sourced
+  helper and test files as bash. The intentional findings left have a
+  `# shellcheck disable=` that says why.
+
+## [1.0.0] - 2026-11-09
 
 First public release.
 
@@ -105,7 +112,6 @@ First public release.
 - macOS, Windows 11 (inside WSL2) or Ubuntu 24.04+. macOS hadn't been
   tested at release: see the README's requirements.
 
-<!-- Version links go here once the public repository and its tags exist:
+Version links go here once the public repository and its tags exist:
 [Unreleased]: https://github.com/proangelos/sbx-capsule/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/proangelos/sbx-capsule/releases/tag/v1.0.0
--->

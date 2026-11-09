@@ -96,6 +96,7 @@ trap 'rm -rf -- "$staging"' EXIT
 state_dir="$(state_dir_of "$sandbox_dir")"
 
 # git on the bare repo: yours and the tool's config only; the pager off.
+# shellcheck disable=SC2209  # GIT_PAGER=cat is an env prefix for git, not an assignment
 bare_git() { GIT_PAGER=cat git -C "$staging/push.git" "$@"; }
 
 for repo in "${repos[@]}"; do

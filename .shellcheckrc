@@ -1,0 +1,5 @@
+# shellcheck settings for make test (and editors). Commands source their
+# helpers relative to their own directory, and the helpers and test files
+# are sourced, so they have no shebang to say which shell they're for.
+source-path=SCRIPTDIR
+shell=bash
