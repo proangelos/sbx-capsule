@@ -1,3 +1,4 @@
+# shellcheck disable=SC2034  # globals set here are read by the files that source this one
 # VS Code helpers for `make code`, which opens a sandbox in VS Code running
 # inside the sandbox's sbx VM (Remote-SSH to <vm>.sbx), and for `make
 # doctor`'s VS Code checks. README.md, "Reviewing and editing a sandbox",

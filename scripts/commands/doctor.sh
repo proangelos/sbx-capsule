@@ -242,6 +242,7 @@ else
     echo "$host:$port"
   }
 
+  # shellcheck disable=SC2034  # read by check_start_branches (validate.sh)
   declare -gA SPEC_BRANCH=()     # check_start_branches: no requested branches
   declare -A checked_hosts=()
   for repo in $(printf '%s\n' "${!REPOS[@]}" | sort); do
@@ -256,7 +257,8 @@ else
 
     # Can the agent reach this repo's git host from inside the VM?
     ep="$(endpoint "$url")"
-    [[ -n "$ep" && -z "${checked_hosts[$ep]:-}" ]] && have_sbx || continue
+    [[ -n "$ep" && -z "${checked_hosts[$ep]:-}" ]] || continue
+    have_sbx || continue
     checked_hosts[$ep]=1
     if sbx policy check network "$ep" >/dev/null 2>&1; then
       ok "$ep is on the sbx network allow-list (the agent can fetch and push)"
