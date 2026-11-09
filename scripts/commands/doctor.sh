@@ -168,6 +168,7 @@ if (( ${#PROBLEMS[@]} )); then
 else
   ok ".env: ${#REPOS[@]} repo(s): $(known_repos)"
   ok "agent: $AGENT${AGENT_ARGS[$AGENT]:+ (args: ${AGENT_ARGS[$AGENT]})}, AGENT_GIT_PUSH=$AGENT_GIT_PUSH"
+  (( ${#AGENT_INSTRUCTIONS[@]} == 0 )) || ok "agent instructions: ${#AGENT_INSTRUCTIONS[@]} (AGENT_INSTRUCTIONS)"
   [[ -z "$SANDBOX_NOTES_FILE" ]] || ok "team notes: $(tilde "$SANDBOX_NOTES_FILE")"
 fi
 

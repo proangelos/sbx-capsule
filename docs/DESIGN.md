@@ -413,6 +413,14 @@ read directly. Claude Code and Gemini CLI don't, so they get `CLAUDE.md` and
 for the human and holds the repo/branch detail; `AGENTS.md` points there
 instead of repeating it.
 
+What the agent should do beyond the tool's safety rules is the user's
+call, so it isn't hard-coded. `AGENT_INSTRUCTIONS` in `.env` goes in a "User
+instructions" section ahead of the generated rules and is marked as taking
+priority over them. Committing is the main example: the generated git rule
+covers only pushing (tied to `AGENT_GIT_PUSH`, which the host-safety checks
+also use), and whether the agent commits on its own or waits is left to
+the user's instructions.
+
 This repo follows the same pattern for its own maintainer instructions.
 
 ## Teardown and the archive

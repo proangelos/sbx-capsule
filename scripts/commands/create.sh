@@ -301,23 +301,43 @@ the git host is on the sbx network allow-list and credentials are set up
   else
     push_how="use \`git push -u origin HEAD:<remote-branch>\` with a feature-branch name the user agrees to"
   fi
-  git_rule="- **Git: commit, and you may push your branch.** Commit on the branch each
-  clone is on (see README.md); $push_how. Never force-push, never push to
-  a repo's source branch, and don't change remotes or branch tracking."
+  git_rule="- **Git: you may push your branch.** Work on the branch each clone is
+  on (see README.md); $push_how. Never force-push, never push to a repo's
+  source branch, and don't change remotes or branch tracking."
 else
-  readme_push_note="The agent commits; you push from the host (\`AGENT_GIT_PUSH=no\` in \`.env\`)
+  readme_push_note="You push from the host (\`AGENT_GIT_PUSH=no\` in \`.env\`)
 with \`make push N=$next REPO=\"<repo>\"$push_as_arg\`, which never runs git in
 the clone. Review the work inside the VM (\`make code N=$next\`), not with git
 or an editor on the host: the agent wrote each clone's git config and hooks
 (see the tool's README, \"Reviewing and editing a sandbox\")."
   network_note="The git host${hosts:+ ($hosts)} may not be on it, so \`git fetch\`, \`pull\` and \`push\` may not work -- use \`make fetch\` (below) for newer commits, and you shouldn't push anyway."
-  git_rule="- **Git: commit, never push.** Commit on the branch each clone is on (see
+  git_rule="- **Git: never push.** Work on the branch each clone is on (see
   README.md). Don't push, and don't change remotes or branch tracking --
   the user pushes from the host."
 fi
 
 # shellcheck disable=SC2016  # literal backticks: Markdown code spans
 generated_list="$(printf '`%s`\n' "${GENERATED_FILES[@]}" | paste -sd, - | sed 's/,/, /g')"
+
+# ---- user instructions (.env AGENT_INSTRUCTIONS): one bullet each, near
+# the top of AGENTS.md and ahead of the tool's own rules. Only expanded,
+# never evaluated, so the text comes out as written. Later lines of a
+# multi-line entry are indented to stay inside their bullet.
+user_instructions=""
+if (( ${#AGENT_INSTRUCTIONS[@]} )); then
+  user_instructions="
+## User instructions
+
+_From \`AGENT_INSTRUCTIONS\` in the user's \`.env\`. These take priority over
+everything else in this file: where they conflict with the rules below,
+follow these._
+"
+  for instruction in "${AGENT_INSTRUCTIONS[@]}"; do
+    user_instructions+="
+- ${instruction//$'\n'/$'\n'  }"
+  done
+  user_instructions+=$'\n'
+fi
 
 # ---- team notes (.env SANDBOX_NOTES_FILE), copied in as they are now.
 team_notes=""
@@ -434,7 +454,7 @@ cat > "$sandbox_dir/AGENTS.md" <<EOF
 **Read this before making any changes.** This directory (\`$sandbox_dir\`) is
 an isolated sandbox: each subdirectory here is a full git clone of a real
 repo, made for this task.
-
+$user_instructions
 ## Where you're running
 
 Usually inside a Docker Sandbox (\`sbx\`) VM, started with \`make run N=$next\`:

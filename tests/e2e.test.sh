@@ -16,6 +16,39 @@ test_new_writes_the_sandbox_files() {
     "$(find "$TOOL/1/api/.git/objects" -type f -links +1 | head -1)" ""
 }
 
+test_agents_md_has_user_instructions_first_and_no_commit_rule() {
+  cat >> "$TOOL/.env" <<'EOF'
+AGENT_INSTRUCTIONS=(
+  "Don't commit until I say so."
+  'Keep `$HOME` and $(date) as written
+across lines.'
+)
+EOF
+  mk new
+  assert_ok "make new"
+  OUT="$(cat "$TOOL/1/AGENTS.md")"
+  assert_contains "the section" "## User instructions"
+  assert_contains "the first entry" "- Don't commit until I say so."
+  # shellcheck disable=SC2016  # the literal text is the point
+  assert_contains "text kept literally" '- Keep `$HOME` and $(date) as written'
+  assert_contains "later lines stay in the bullet" $'\n  across lines.'
+  assert_eq "before the tool's rules" \
+    "$(grep -n -e '^## User instructions' -e "^## Where you're running" "$TOOL/1/AGENTS.md" | cut -d: -f2 | head -1)" \
+    "## User instructions"
+  assert_not_contains "no commit rule from the tool" "Git: commit"
+  assert_contains "the push rule stays" "Git: never push."
+}
+
+test_agents_md_without_user_instructions() {
+  echo 'AGENT_GIT_PUSH=yes' >> "$TOOL/.env"
+  mk new
+  assert_ok "make new"
+  OUT="$(cat "$TOOL/1/AGENTS.md")"
+  assert_not_contains "no empty section" "User instructions"
+  assert_not_contains "no commit rule from the tool" "Git: commit"
+  assert_contains "the push rule" "Git: you may push your branch."
+}
+
 test_new_with_title_and_empty() {
   mk new TITLE=login EMPTY=1
   assert_ok "make new EMPTY=1 TITLE=login"
@@ -131,6 +164,7 @@ test_new_skips_a_number_with_a_leftover_vm() {
 
 test_doctor_checks_pass() {
   mk new
+  echo 'AGENT_INSTRUCTIONS=("one" "two")' >> "$TOOL/.env"
   mk doctor
   # The scratch copy can fail checks that depend on where it lives (under
   # /tmp/claude-*, say) or on VS Code, so look at the ones the tool owns.
@@ -138,6 +172,7 @@ test_doctor_checks_pass() {
   assert_contains "host safety" "no sbx VM can write this checkout"
   assert_contains "clones" "1 clone(s): nothing in their git config or hooks"
   assert_not_contains "nothing about sbx failing" "couldn't ask sbx"
+  assert_contains "the instructions" "agent instructions: 2"
 }
 
 test_doctor_flags_a_config_others_can_write() {

@@ -7,11 +7,13 @@ test_bad_env_lists_every_problem() {
   cat >> "$TOOL/.env" <<'EOF'
 AGENT_GIT_PUSH=maybe
 SBX_CREATE_FLAGS="--name x"
+AGENT_INSTRUCTIONS=("fine" "  ")
 EOF
   mk new
   assert_fails "make new with a bad .env"
   assert_contains "AGENT_GIT_PUSH" "AGENT_GIT_PUSH='maybe'"
   assert_contains "reserved flag" "--name"
+  assert_contains "a blank instruction" "AGENT_INSTRUCTIONS[1] is empty"
   assert_contains "nothing changed" "Nothing was created or changed"
   assert_eq "tree unchanged" "$(tree_state)" "$before"
 }

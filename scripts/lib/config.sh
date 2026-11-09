@@ -5,8 +5,8 @@
 # Config is two plain-bash files, sourced in order:
 #   .env.default  (tracked)    the tool's defaults: AGENT, AGENT_ARGS,
 #                              SBX_CREATE_FLAGS, SBX_NAME_PREFIX, AGENT_GIT_PUSH,
-#                              SANDBOX_NOTES_FILE, VSCODE_CMD, VSCODE_PROFILE,
-#                              VSCODE_USER_DIR
+#                              AGENT_INSTRUCTIONS, SANDBOX_NOTES_FILE, VSCODE_CMD,
+#                              VSCODE_PROFILE, VSCODE_USER_DIR
 #   .env          (gitignored, required)  your repos -- REPOS, SOURCE_BRANCHES,
 #                              DEFAULT_REPOS, REPO_GROUP, REPO_DESC -- and any
 #                              overrides of those defaults
@@ -17,7 +17,7 @@
 # either file is read, so `AGENT_ARGS[codex]=...` in .env works without its
 # own `declare -A`.
 declare -A REPOS=() SOURCE_BRANCHES=() REPO_GROUP=() REPO_DESC=() AGENT_ARGS=()
-DEFAULT_REPOS=()
+DEFAULT_REPOS=() AGENT_INSTRUCTIONS=()
 AGENT="" SBX_CREATE_FLAGS="" SBX_NAME_PREFIX="" AGENT_GIT_PUSH="" SANDBOX_NOTES_FILE=""
 VSCODE_CMD="" VSCODE_PROFILE="" VSCODE_USER_DIR=""
 

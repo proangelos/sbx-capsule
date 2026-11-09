@@ -27,6 +27,7 @@ if anything hasn't been pushed.
 - [Letting the agent push](#letting-the-agent-push)
 - [Pushing from the host](#pushing-from-the-host)
 - [Fetching from the host](#fetching-from-the-host)
+- [Agent instructions: `AGENT_INSTRUCTIONS`](#agent-instructions-agent_instructions)
 - [Team notes: `SANDBOX_NOTES_FILE`](#team-notes-sandbox_notes_file)
 - [What's in a sandbox](#whats-in-a-sandbox)
 - [Troubleshooting](#troubleshooting)
@@ -118,7 +119,7 @@ for up-to-date installation instructions. Then:
 sbx login
 sbx policy init balanced           # allow-list network policy
 
-# The agent commits and you push, so keep your SSH keys out of its VM.
+# You push, not the agent, so keep your SSH keys out of its VM.
 # sbx forwards them by default, and make run refuses until this is off
 # (see "Letting the agent push").
 sbx settings set ssh.agentForwardingEnabled false
@@ -261,6 +262,7 @@ updates never conflicts with your settings.
 | `SBX_CREATE_FLAGS` | no (default none) | Extra `sbx run` flags used when a VM is created (`--cpus`, `--memory`, `-t`, `--kit`, `-p`, ...) |
 | `SBX_NAME_PREFIX` | no (default none) | Put in front of new VMs' names: `<prefix>-<checkout id>-<sandbox>` instead of `<checkout id>-<sandbox>`. Lowercase letters, digits and `-`. Existing VMs keep their names; `make run N=<n> FRESH=1` renames one |
 | `AGENT_GIT_PUSH` | no (default `no`) | `yes` lets the agent push its branch -- see [Letting the agent push](#letting-the-agent-push) |
+| `AGENT_INSTRUCTIONS=("text" ...)` | no (default none) | Your own instructions, written at the top of every new sandbox's `AGENTS.md` with priority over the tool's rules -- including whether the agent commits. See [Agent instructions](#agent-instructions-agent_instructions) |
 | `SANDBOX_NOTES_FILE` | no (default none) | A markdown file copied into every new sandbox's `AGENTS.md` -- see [Team notes](#team-notes-sandbox_notes_file) |
 | `VSCODE_CMD` | no (default: found) | The command `make code` opens VS Code with: empty finds it (on WSL, Windows' VS Code; elsewhere `code`); set `code-insiders` or `cursor` for those |
 | `VSCODE_PROFILE` | no (default: the default profile) | A VS Code profile to open sandboxes in -- see [Reviewing and editing a sandbox](#reviewing-and-editing-a-sandbox) |
@@ -284,7 +286,8 @@ Every command validates it first and lists every problem at once: a repo
 with no `SOURCE_BRANCHES` entry, a `DEFAULT_REPOS` name that isn't in
 `REPOS`, an invalid repo name, an unknown `AGENT` or `AGENT_ARGS` key, an
 `SBX_CREATE_FLAGS` flag the tool manages itself, an `SBX_NAME_PREFIX` sbx
-wouldn't accept, or a missing `SANDBOX_NOTES_FILE`.
+wouldn't accept, a blank `AGENT_INSTRUCTIONS` entry, or a missing
+`SANDBOX_NOTES_FILE`.
 
 ## Choosing an agent
 
@@ -453,7 +456,8 @@ Trust**), and never set `security.workspace.trust.enabled` to `false`;
 ## Letting the agent push
 
 By default (`AGENT_GIT_PUSH=no`) the generated `AGENTS.md` tells the agent
-to commit and never push; you review and push from the host, where your
+never to push (whether it commits is up to your
+[`AGENT_INSTRUCTIONS`](#agent-instructions-agent_instructions)); you review and push from the host, where your
 credentials and network already work. That's also the right choice when your
 git server isn't reachable from the VM at all (a private host behind a VPN,
 say).
@@ -561,6 +565,30 @@ ls-remote`, which runs `upload-pack` there. Tags aren't included, and
 branches deleted on origin stay in the clone. `make destroy` deletes the
 bundles.
 
+## Agent instructions: `AGENT_INSTRUCTIONS`
+
+Your own rules for the agent, as a list of plain-text strings in `.env`.
+They're written near the top of every new sandbox's `AGENTS.md`, under
+"User instructions", ahead of the tool's generated rules, and that section
+tells the agent they take priority where the two conflict.
+
+The tool doesn't tell the agent whether to commit, so that's the first
+thing to say here:
+
+```bash
+AGENT_INSTRUCTIONS=(
+  "Don't commit. Leave your changes uncommitted until I've reviewed them and ask you to commit."
+  # or: "Commit your work as you go, in small commits with clear messages."
+  "Run the repo's tests before saying a change is done."
+)
+```
+
+Each string becomes one bullet, written exactly as given (nothing in it is
+expanded when the sandbox is created). Later lines of a multi-line string
+stay inside its bullet. Like team notes, it's a snapshot: edits apply to
+sandboxes created afterwards. Instructions are requests; the limits `sbx`
+enforces (what the VM can see and reach) apply whatever they say.
+
 ## Team notes: `SANDBOX_NOTES_FILE`
 
 Anything specific to your team or machine -- how your repos relate, local
@@ -577,14 +605,15 @@ sandboxes created afterwards.
 ├── api/            full clone, on its sandbox branch
 ├── web/            full clone, on its sandbox branch
 ├── README.md       for you: repos, branches, how to run/add/destroy, push behaviour
-├── AGENTS.md       for the agent: where it runs, what it may touch, git rules, team notes
+├── AGENTS.md       for the agent: your instructions, where it runs, what it may touch, push rules, team notes
 ├── CLAUDE.md       imports AGENTS.md (Claude Code)
 ├── GEMINI.md       imports AGENTS.md (Gemini CLI)
 ├── .fetch-api.bundle   new commits from origin, from make fetch, for the agent to apply
 └── .vscode/        settings.json for make code; read-only inside the VM
 ```
 
-The rules in `AGENTS.md` tell the agent to change code only in this
+`AGENTS.md` starts with your `AGENT_INSTRUCTIONS`, if any. The tool's own
+rules after them tell the agent to change code only in this
 sandbox's clones, leave running containers alone, follow your
 `AGENT_GIT_PUSH` setting, never force-push, and ask you to run `make add`
 when it needs another repo (it can't see your source checkouts from inside

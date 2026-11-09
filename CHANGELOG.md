@@ -9,8 +9,22 @@ how to migrate.
 
 ## [Unreleased]
 
+### Added
+
+- `AGENT_INSTRUCTIONS` in `.env`: a list of plain-text instructions written
+  into every new sandbox's `AGENTS.md` under "User instructions", ahead of
+  the tool's own rules and marked as taking priority over them. `make new`
+  rejects blank entries; `make doctor` shows how many are set.
+
 ### Changed
 
+- The generated `AGENTS.md` no longer tells the agent to commit: its git
+  rule now covers only pushing ("never push", or "you may push your branch"
+  with `AGENT_GIT_PUSH=yes`). **Migration:** to keep the agent committing
+  its work, add an instruction such as
+  `AGENT_INSTRUCTIONS=("Commit your work as you go.")` to `.env`; to have
+  it wait for you, say that instead. Existing sandboxes keep their
+  `AGENTS.md`.
 - The README's Quickstart now goes from nothing to a first sandbox: it
   links Docker's `sbx` install guide, then adds signing in to sbx,
   setting its network policy, turning off its SSH agent forwarding (which

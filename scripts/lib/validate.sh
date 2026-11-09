@@ -90,6 +90,14 @@ check_agent_config() {
   done < <(printf '%s\n' "${!AGENT_ARGS[@]}" | sort)
   [[ "$AGENT_GIT_PUSH" == yes || "$AGENT_GIT_PUSH" == no ]] \
     || PROBLEMS+=("AGENT_GIT_PUSH='$AGENT_GIT_PUSH' -- use yes or no")
+  # Guarded: bash before 4.4 calls an empty array unbound under set -u.
+  local i
+  if (( ${#AGENT_INSTRUCTIONS[@]} )); then
+    for i in "${!AGENT_INSTRUCTIONS[@]}"; do
+      [[ "${AGENT_INSTRUCTIONS[$i]}" =~ [^[:space:]] ]] \
+        || PROBLEMS+=("AGENT_INSTRUCTIONS[$i] is empty -- remove the entry, or write the instruction")
+    done
+  fi
   if [[ -n "$SANDBOX_NOTES_FILE" && ! ( -f "$SANDBOX_NOTES_FILE" && -r "$SANDBOX_NOTES_FILE" ) ]]; then
     PROBLEMS+=("SANDBOX_NOTES_FILE='$SANDBOX_NOTES_FILE' isn't a readable file")
   fi
