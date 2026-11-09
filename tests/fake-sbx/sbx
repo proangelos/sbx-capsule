@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# A stand-in for Docker Sandboxes' `sbx`, put first on PATH by the tests
+# (tests/lib.sh), so the commands that ask sbx about VMs can be tested
+# without a real one. It answers from a state folder, FAKE_SBX_DIR:
+#
+#   vms      one VM per line: name, status, agent, then its workspaces,
+#            tab-separated (a read-only one ends in :ro, one with its own
+#            path in the VM is PATH:TARGET; one starting "mount=" is listed
+#            in "mounts" instead, as sbx v0.51.0 lists binds). `sbx run`
+#            adds one; `sbx rm` removes one; `sbx stop` marks it stopped.
+#   fail     if it exists, every command fails, as an sbx whose daemon is
+#            down does.
+#   hang     if it exists, every command blocks.
+#   garbled  if it exists, `ls --json` answers with something not JSON.
+#   agentfwd the value of ssh.agentForwardingEnabled (default false).
+#   settings/<key>  the value of any other setting (default empty).
+#   calls    every invocation is appended here, one per line.
+#
+# Output formats follow sbx v0.50.1: `ls --json` is pretty-printed with
+# each field 4 spaces in (scripts/lib/agents.sh reads it without jq too).
+set -euo pipefail
+
+dir="${FAKE_SBX_DIR:?FAKE_SBX_DIR not set}"
+vms="$dir/vms"
+touch "$vms"
+printf '%s\n' "$*" >> "$dir/calls"
+
+[[ -e "$dir/hang" ]] && exec sleep 600
+if [[ -e "$dir/fail" ]]; then
+  echo "error: can't reach the sandboxd daemon" >&2
+  exit 1
+fi
+
+json_str() { local s="${1//\\/\\\\}"; printf '"%s"' "${s//\"/\\\"}"; }
+
+json_list() {  # <field> <value>...
+  local field="$1" v
+  shift
+  echo "    \"$field\": ["
+  while (( $# )); do
+    v="$(json_str "$1")"
+    (( $# > 1 )) && v+=","
+    echo "      $v"
+    shift
+  done
+  echo "    ]"
+}
+
+ls_json() {
+  local first=1 line name status agent i wss mts
+  echo "["
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    IFS=$'\t' read -r -a f <<< "$line"
+    name="${f[0]}" status="${f[1]}" agent="${f[2]}"
+    (( first )) || echo "  },"
+    first=0
+    echo "  {"
+    echo "    \"name\": $(json_str "$name"),"
+    echo "    \"agent\": $(json_str "$agent"),"
+    echo "    \"status\": $(json_str "$status"),"
+    wss=() mts=()
+    for (( i = 3; i < ${#f[@]}; i++ )); do
+      if [[ "${f[i]}" == mount=* ]]; then mts+=("${f[i]#mount=}"); else wss+=("${f[i]}"); fi
+    done
+    json_list workspaces ${wss[@]+"${wss[@]}"}
+    if (( ${#mts[@]} )); then
+      echo "    ,"
+      json_list mounts "${mts[@]}"
+    fi
+  done < "$vms"
+  (( first )) || echo "  }"
+  echo "]"
+}
+
+set_status() {  # <name> <status>
+  local tmp="$vms.tmp" line
+  : > "$tmp"
+  while IFS= read -r line; do
+    if [[ "${line%%$'\t'*}" == "$1" ]]; then
+      IFS=$'\t' read -r -a f <<< "$line"
+      f[1]="$2"
+      (IFS=$'\t'; printf '%s\n' "${f[*]}") >> "$tmp"
+    else
+      printf '%s\n' "$line" >> "$tmp"
+    fi
+  done < "$vms"
+  mv "$tmp" "$vms"
+}
+
+remove_vm() {  # <name>
+  local tmp="$vms.tmp" line
+  : > "$tmp"
+  while IFS= read -r line; do
+    [[ "${line%%$'\t'*}" == "$1" ]] || printf '%s\n' "$line" >> "$tmp"
+  done < "$vms"
+  mv "$tmp" "$vms"
+}
+
+case "${1:-}" in
+  version)  echo "v0.50.1 linux/amd64 v0.50.1" ;;
+  diagnose)
+    cat <<'EOF'
+{
+  "checks": [
+    {
+      "name": "Daemon",
+      "status": "pass",
+      "message": "reachable",
+      "hint": ""
+    }
+  ]
+}
+EOF
+    ;;
+  ls)
+    case "${2:-}" in
+      --json) if [[ -e "$dir/garbled" ]]; then echo "Error: something went wrong"; else ls_json; fi ;;
+      -q)     cut -f1 "$vms" ;;
+      *)      echo "SANDBOX  AGENT  STATUS"
+              awk -F'\t' '{ print $1 "  " $3 "  " $2 }' "$vms" ;;
+    esac ;;
+  settings)
+    [[ "${2:-}" == get ]] || exit 0
+    case "${3:-}" in
+      ssh.agentForwardingEnabled) cat "$dir/agentfwd" 2>/dev/null || echo false ;;
+      *) cat "$dir/settings/$3" 2>/dev/null || echo "" ;;
+    esac ;;
+  secret)   ;;
+  stop)     shift; for n in "$@"; do set_status "$n" stopped; done ;;
+  rm)       shift; for n in "$@"; do [[ "$n" == -* ]] || remove_vm "$n"; done ;;
+  run)
+    # sbx run --name <name> [flags] <agent> <workspace>... [-- args]: creates
+    # the VM if it's new (the tests only look at what was recorded).
+    shift
+    name="" agent="" wss=()
+    while (( $# )); do
+      case "$1" in
+        --name) name="$2"; shift 2 ;;
+        --) break ;;
+        -*) shift ;;
+        *)  if [[ -z "$agent" ]]; then agent="$1"; else wss+=("$1"); fi; shift ;;
+      esac
+    done
+    if [[ -n "$name" ]] && ! cut -f1 "$vms" | grep -qxF "$name"; then
+      (IFS=$'\t'; printf '%s\n' "$name"$'\t'running$'\t'"$agent"$'\t'"${wss[*]}") >> "$vms"
+    fi ;;
+  *) ;;
+esac
+exit 0

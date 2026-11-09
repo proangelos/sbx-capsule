@@ -1,0 +1,23 @@
+# Sandbox instances created by `make new` live here as numbered directories
+# (1/, 2/, ... or <n>-<title>/) holding clones of your repos. These must never
+# be tracked in this repo.
+/[0-9]*/
+
+# Notes archived from destroyed sandboxes by destroy.sh (.archive/<n>-<title>/).
+/.archive/
+
+# Your personal config (repos, agent overrides), layered over the tracked
+# .env.default -- see .env.example.
+/.env
+
+# Held for a moment by `make new` while it claims the next sandbox number.
+/.new.lock/
+
+# Where `make add` builds a clone before moving it into the sandbox, and
+# briefly links files it reads from one (snapshot_sandbox_file).
+/.staging.*/
+
+# Host-side records about sandboxes, outside any VM's reach: each one's
+# PUSH_AS (.state/<n>-<title>/push_as) and the commits make push sent
+# (.state/<n>-<title>/pushed). Removed by make destroy.
+/.state/
