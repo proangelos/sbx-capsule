@@ -71,7 +71,6 @@ if [[ -n "${FRESH:-}" ]]; then
   vm_exists=""
 fi
 [[ -n "$vm_exists" ]] || vscode_dir_problems "$sandbox_dir"
-mounts=("$sandbox_dir")
 report_problems "can't start sandbox $n:"
 validate_config warn
 
@@ -118,12 +117,8 @@ fi
 
 # The sandbox's VS Code workspace settings, mounted read-only so the agent
 # can't switch credential and port forwarding back on (make code).
-ensure_vscode_dir "$sandbox_dir" || die "couldn't write $sandbox_dir/.vscode/settings.json"
-mounts+=("$sandbox_dir/.vscode:ro")
-
-create_flags=()
-[[ -n "$SBX_CREATE_FLAGS" ]] && read -r -a create_flags <<< "$SBX_CREATE_FLAGS"
+vm_create_args "$sandbox_dir" || die "couldn't write $sandbox_dir/.vscode/settings.json"
 agent_args "$AGENT"
 echo "Creating ${C_BOLD}$name${C_RESET} ($AGENT) on $sandbox_dir"
 warn_without_terminal
-exec sbx run --name "$name" ${create_flags[@]+"${create_flags[@]}"} "$AGENT" "${mounts[@]}" ${AGENT_ARGV[@]+-- "${AGENT_ARGV[@]}"}
+exec sbx run --name "$name" ${VM_CREATE_FLAGS[@]+"${VM_CREATE_FLAGS[@]}"} "$AGENT" "${VM_WORKSPACES[@]}" ${AGENT_ARGV[@]+-- "${AGENT_ARGV[@]}"}

@@ -175,3 +175,30 @@ test_doctor_notes_clipboard_copy() {
   mk doctor
   assert_contains "notes it" "clipboard.textCopy"
 }
+
+# make code on a sandbox with no VM creates one only once every check has
+# passed. Here VS Code can't be found, so it must refuse and create nothing.
+test_code_creates_no_vm_when_it_refuses() {
+  mk new
+  mk code N=1
+  assert_fails "make code without VS Code"
+  assert_contains "says why" "couldn't find VS Code"
+  local calls
+  calls="$(cat "$FAKE_SBX_DIR/calls" 2>/dev/null || true)"
+  [[ "$calls" != *"create --name"* ]] || _fail "no sbx create was sent (calls: $calls)"
+  [[ ! -s "$FAKE_SBX_DIR/vms" ]] || _fail "no VM was recorded"
+}
+
+# The VM make code creates gets the same agent, sandbox folder and read-only
+# .vscode mount as make run's, with SBX_CREATE_FLAGS passed through.
+test_vm_creation_args_match_make_run() {
+  mk new
+  echo 'SBX_CREATE_FLAGS="--cpus 2"' >> "$TOOL/.env"
+  in_tool bash -c 'source scripts/lib/all.sh; vm_create_args "$1" && printf "%s\n" "${VM_WORKSPACES[@]}" && printf "%s\n" "${VM_CREATE_FLAGS[@]}"' _ "$TOOL/1"
+  assert_ok "vm_create_args"
+  assert_eq "workspaces: the folder, then .vscode read-only" "$OUT" "$TOOL/1
+$TOOL/1/.vscode:ro
+--cpus
+2"
+  assert_exists "the .vscode settings were written" "$TOOL/1/.vscode/settings.json"
+}

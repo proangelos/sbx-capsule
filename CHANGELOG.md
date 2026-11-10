@@ -11,6 +11,12 @@ how to migrate.
 
 ### Changed
 
+- `make code N=<n>` creates the sandbox's VM when it has none, instead of
+  stopping with "start it once with make run". It makes the same VM `make run`
+  would (same agent, mounts and `SBX_CREATE_FLAGS`) with `sbx create`, which
+  doesn't attach the agent, so `make run N=<n>` or a terminal in the VM still
+  runs it. Every check runs before anything is created. Nothing changes for an
+  existing VM.
 - The README's Quickstart now goes from nothing to a first sandbox: it
   links Docker's `sbx` install guide, then adds signing in to sbx,
   setting its network policy, turning off its SSH agent forwarding (which

@@ -200,7 +200,7 @@ make help
 | `make doctor` | Read-only check of everything the tool needs, listing every problem with how to fix it: bash, git and make versions; `sbx` installed and healthy (via `sbx diagnose`: virtualization, sign-in, network policy); your `.env`; each repo's checkout, `origin` and start branch; whether the VM can reach each repo's git host; and host safety: no sbx VM can write this checkout (outside its sandbox folders) or a source checkout, sbx doesn't forward your SSH agent while `AGENT_GIT_PUSH=no`, `.env` isn't writable by others, plus notes on secrets and settings that widen what a VM can reach; and each sandbox clone's git config and hooks, for anything that would run on the host if git there used it. |
 | `make new` | Creates the next numbered sandbox (`<n>/`, or `<n>-<TITLE>/`) with a clone of each repo. With no repos to clone, or with `EMPTY=1`, the sandbox starts empty, for `make add` to fill. |
 | `make run` | Starts `AGENT` in the sandbox's VM, creating the VM on first use and reattaching after. `ARGS` are extra arguments for the agent. `FRESH=1` removes the sandbox's VM first and creates a new one from your current `.env`, to pick up a changed `AGENT` or `SBX_CREATE_FLAGS`: the sandbox's files stay, the agent's history inside the VM goes. Refuses to start while any sbx VM can write this checkout (outside its sandbox folders) or a source checkout, or while sbx forwards your SSH agent with `AGENT_GIT_PUSH=no` or mounts your agent's skills store writable (`skills.defaultMode=readwrite`) (see Troubleshooting). |
-| `make code` | Opens the sandbox in VS Code, with VS Code itself (Git, terminals, extensions) running inside its VM, so nothing the agent wrote runs on your host. Needs the VM (`make run` first) and a one-time setup -- see [Reviewing and editing a sandbox](#reviewing-and-editing-a-sandbox). Refuses, listing why, if VS Code or SSH would pass your credentials into the VM. |
+| `make code` | Opens the sandbox in VS Code, with VS Code itself (Git, terminals, extensions) running inside its VM, so nothing the agent wrote runs on your host. If the sandbox has no VM yet, creates it first, with the same agent, mounts and `SBX_CREATE_FLAGS` as `make run`, but without attaching the agent (`make run N=<n>` attaches to it later). Needs a one-time setup -- see [Reviewing and editing a sandbox](#reviewing-and-editing-a-sandbox). Refuses, listing why, if VS Code or SSH would pass your credentials into the VM; nothing is created when it refuses. |
 | `make stop` | Stops a sandbox's VM without removing it. The agent's history and settings inside the VM are kept, and `make run` starts it again. `ALL=1` stops every running VM this checkout made. The sandbox's files are on the host, so they're never affected. |
 | `make prune` | Removes the VMs left over from sandboxes that are gone (a sandbox folder removed by hand, or destroyed while `sbx` wasn't installed), so `make new` can use their numbers again. Lists them and asks once; `YES=1` skips the question. Only ever this checkout's VMs, never other `sbx` VMs on the machine. |
 | `make add` | Clones more repos into an existing sandbox, the same way `make new` would. Shows up in a running VM immediately. |
@@ -334,7 +334,9 @@ VM:
 
 - **VS Code: `make code N=<n>`** opens the sandbox in VS Code running
   inside its VM, over Remote-SSH. Git, terminals, extensions and language
-  servers all run there. Needs the one-time setup below. VS Code installed
+  servers all run there. Creates the VM if there isn't one yet, so `make run`
+  isn't needed first; the agent isn't started by that, and `make run N=<n>`
+  or a terminal in the VM still runs it. Needs the one-time setup below. VS Code installed
   as a Flatpak isn't supported (Remote-SSH inside it can't run `sbx` on the
   host), and `make code` refuses it: use Microsoft's .deb, .rpm or tarball.
 - **A terminal: `sbx exec -it <vm> bash`** (the VM name is in `make list`),

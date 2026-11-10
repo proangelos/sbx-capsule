@@ -129,9 +129,10 @@ EOF
   secret)   ;;
   stop)     shift; for n in "$@"; do set_status "$n" stopped; done ;;
   rm)       shift; for n in "$@"; do [[ "$n" == -* ]] || remove_vm "$n"; done ;;
-  run)
+  run|create)
     # sbx run --name <name> [flags] <agent> <workspace>... [-- args]: creates
     # the VM if it's new (the tests only look at what was recorded).
+    # sbx create takes the same arguments but doesn't attach an agent.
     shift
     name="" agent="" wss=()
     while (( $# )); do
