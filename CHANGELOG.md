@@ -11,12 +11,41 @@ how to migrate.
 
 ### Added
 
+- Agent profiles: `user-config/agents/<name>.env` names an agent (built-in
+  or a kit reference such as `dhi.io/pi:latest`) with its `ARGS`, extra
+  `sbx run` flags for creating its VM (`CREATE_FLAGS`, e.g. `--kit`) and the
+  sbx secrets it uses (`CREDENTIALS`, names only). `AGENT` in `.env` may name
+  one. Only those four settings are allowed; `-e`/`--env`/`--env-file` are
+  refused in a profile, since the agent can read what they pass. `make
+  doctor` checks every profile.
+- A sandbox's own agent: `make new AGENT=<name>` or
+  `make run N=<n> AGENT=<name>` saves it outside the sandbox
+  (`.state/<n>/agent`), so later changes to `.env`'s `AGENT` don't affect
+  it. Switching a sandbox whose VM runs another agent needs `FRESH=1`.
+  Only a command-line `AGENT=` counts. `make list` shows each sandbox's own
+  agent, and `make run` notes when a profile changed since its VM was made.
+- `user-config/` (gitignored): your own profiles, local kits and kit args
+  files for this checkout, outside every VM. `make init` creates it from the
+  tracked `user-config.example/`, which sets up Pi on a model server on your
+  machine (a kit mixin for `dhi.io/pi:latest`, checked by hand with sbx).
+
 - `AGENT_INSTRUCTIONS` in `.env`: a list of plain-text instructions written
   into every new sandbox's `AGENTS.md` under "User instructions", ahead of
   the tool's own rules and marked as taking priority over them. `make new`
   rejects blank entries; `make doctor` shows how many are set.
 
 ### Changed
+
+- Relative paths for `--kit`, `--kit-args-file` and `--env-file` in
+  `SBX_CREATE_FLAGS`, and a local kit path in `AGENT`, are now taken from
+  the tool's folder, not the directory make was run from. They must exist
+  and mustn't be inside a sandbox folder (which its VM can write), through
+  symlinks too. **Migration:** move a kit or args file kept in a sandbox
+  folder into `user-config/`.
+- `AGENT_ARGS` keys may be kit references, not only built-in agents.
+- `make run` on an existing VM compares its agent with the sandbox's agent
+  only when sbx reports a built-in one, so a VM made from a kit no longer
+  gets a spurious "created with" warning.
 
 - The generated `AGENTS.md` no longer tells the agent to commit: its git
   rule now covers only pushing ("never push", or "you may push your branch"

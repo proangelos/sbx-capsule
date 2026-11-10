@@ -221,7 +221,8 @@ doctor` reports them:
   .` run from here, say). Every `make` command sources `.env` and runs
   `scripts/`, so that VM could run anything on the host. A writable mount
   of anything *inside* the checkout counts too, unless it's a sandbox
-  folder itself: `scripts/`, `.env`, `.state/` (where `PUSH_AS` is kept) or
+  folder itself: `scripts/`, `.env`, `.state/` (where `PUSH_AS` and a
+  sandbox's own agent are kept), `user-config/` (agent profiles and kits) or
   a sandbox's `.vscode` (mounted read-only by `make run`). Only a VM made
   by hand can have one, so this is defence in depth.
 - **A VM can write a source checkout.** The tool runs plain git there
@@ -238,6 +239,43 @@ doctor` reports them:
 These look at every sbx VM on the machine, not only this checkout's, since
 any of them could hold the mount. If sbx can't be asked, every one of
 them fails closed.
+
+## Agent profiles, `user-config/` and each sandbox's own agent
+
+Choosing an agent per sandbox needs two things `.env` can't give: a place
+for agent setups other than the default, and a record of which one a
+sandbox uses that outlives edits to `.env`.
+
+- **`user-config/` is outside every VM.** Profiles are run as bash and kit
+  files decide what a VM is created with, so they live in a gitignored
+  folder at the top of the checkout, next to `.env`, which no VM mounts.
+  Its name can't be mistaken for a sandbox's (those start with a digit,
+  `is_sandbox_name`). For the same reason, a kit, args file, env file or
+  profile that resolves (through symlinks too) into a sandbox folder is
+  refused before anything reads it: the VM could otherwise change what the
+  next VM gets, or have a profile run on the host. Relative paths are taken
+  from the checkout, never from where make was run, so a profile means the
+  same thing wherever it's used.
+- **A profile is a short allow-list, read in a subshell.** It's bash like
+  `.env`, for the same reason (one familiar syntax), but only `AGENT`,
+  `ARGS`, `CREATE_FLAGS` and `CREDENTIALS` may be set, anything else is
+  named in the error, and the values come back to the caller as quoted
+  data. `-e`/`--env`/`--env-file` are refused in it: what they pass, the
+  agent can read. Credentials belong in sbx secrets, which the proxy adds on
+  the way out, so a profile only names them.
+- **The sandbox saves the profile's name, not a copy.** `.state/<n>/agent`
+  (host side, like `push_as`) holds what `AGENT=` named, so later `.env`
+  edits don't move the sandbox, but an edit to the profile itself does, as
+  the user would expect from naming it. A checksum taken when the VM was
+  created lets `make run` say when the profile changed since, so that's
+  never silent. Only an explicit `AGENT=` is saved: a sandbox made without
+  one keeps following `.env`, as every sandbox did before profiles.
+- **Only a command-line `AGENT=` counts.** The Makefile passes it on as
+  `CLI_AGENT`, and only when `$(origin AGENT)` is `command line`, so an
+  `AGENT` exported in the user's shell can't pick an agent by accident.
+- **A VM keeps its agent.** `sbx` fixes it at creation, so naming a
+  different one for a sandbox that has a VM is refused unless `FRESH=1`
+  recreates it, rather than saving a choice the VM doesn't follow.
 
 ## Pushing from the host: fetch out, never run git in the clone
 

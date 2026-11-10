@@ -35,6 +35,7 @@ source "$LIB_DIR/output.sh"     # colors, die, warn, banner
 source "$LIB_DIR/agents.sh"     # sbx VM helpers, agents, AGENT_SHIMS
 source "$LIB_DIR/sandbox.sh"    # sandbox lookup, GENERATED_FILES (uses AGENT_SHIMS)
 source "$LIB_DIR/validate.sh"   # PROBLEMS, config and repo-spec checks
+source "$LIB_DIR/profiles.sh"   # agent profiles, user-config/, kit paths, saved agents
 source "$LIB_DIR/git_version.sh" # git version checks (uses warn)
 source "$LIB_DIR/push_as.sh"    # PUSH_AS checks
 source "$LIB_DIR/clone.sh"      # clone_repo, resumed_banner

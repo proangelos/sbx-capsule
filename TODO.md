@@ -29,15 +29,12 @@ Planned work for sbx-capsule, most important first within each section.
     local hosting.
   - Done when: it's clear whether sbx kits can run arbitrary agents. If
     they can, plan general support; if not, write down why.
-
-- [ ] **Let make commands pick a one-off agent**
-  - Why: once arbitrary agents are supported (see the Pi item), a user
-    should be able to run a specific agent for one command, without
-    changing the default or the agent set in `.env`.
-  - Done when: the relevant make commands (e.g. `make run`, `make new`)
-    accept an agent override on the command line that takes precedence over
-    both the built-in default and the `.env` setting, and `make help`,
-    the README and `tests/` cover it.
+  - Progress: they can. Pi runs as `dhi.io/pi:latest` with the example
+    mixin in `user-config.example/` (local models), and profiles plus
+    `AGENT=` cover choosing it per sandbox. Left: confirm cloud providers
+    work through `sbx secret` for arbitrary hosts, check `CREDENTIALS`
+    against `sbx secret ls`, and record what `sbx ls` reports for a kit VM
+    in docs/DOCKER_SANDBOXES.md.
 
 - [ ] **Explore sbx templates**
   - Why: `sbx template save` snapshots a VM. A prepared template could cut

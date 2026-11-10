@@ -167,7 +167,7 @@ if (( ${#PROBLEMS[@]} )); then
   for p in "${PROBLEMS[@]}"; do fail "$p"; done
 else
   ok ".env: ${#REPOS[@]} repo(s): $(known_repos)"
-  ok "agent: $AGENT${AGENT_ARGS[$AGENT]:+ (args: ${AGENT_ARGS[$AGENT]})}, AGENT_GIT_PUSH=$AGENT_GIT_PUSH"
+  ok "agent: $(run_agent_label)${RUN_ARGS:+ (args: $RUN_ARGS)}, AGENT_GIT_PUSH=$AGENT_GIT_PUSH"
   (( ${#AGENT_INSTRUCTIONS[@]} == 0 )) || ok "agent instructions: ${#AGENT_INSTRUCTIONS[@]} (AGENT_INSTRUCTIONS)"
   [[ -z "$SANDBOX_NOTES_FILE" ]] || ok "team notes: $(tilde "$SANDBOX_NOTES_FILE")"
 fi
@@ -186,7 +186,22 @@ private_group_file() {
   members="${members##*:}"
   [[ -z "$members" || "$members" == "$me" ]]
 }
-for f in "$DEFAULTS_FILE" "$ENV_FILE"; do
+# Agent profiles (user-config/agents/*.env) are run as bash too, and are
+# checked like .env, whether or not .env's AGENT names one.
+profile_files=()
+while IFS= read -r prof; do
+  [[ -n "$prof" ]] || continue
+  profile_files+=("$(profile_file "$prof")")
+  # .env's AGENT's own profile was checked with the config above.
+  [[ "$prof" == "$AGENT" && -z "$config_ok" ]] && continue
+  PROBLEMS=()
+  if load_profile "$prof"; then
+    ok "profile $prof: $PROFILE_AGENT${PROFILE_ARGS:+ (args: $PROFILE_ARGS)}${PROFILE_CREDENTIALS:+, sbx secrets: $PROFILE_CREDENTIALS}"
+  else
+    for p in "${PROBLEMS[@]}"; do fail "$p"; done
+  fi
+done < <(list_profiles)
+for f in "$DEFAULTS_FILE" "$ENV_FILE" ${profile_files[@]+"${profile_files[@]}"}; do
   [[ -f "$f" ]] || continue
   if [[ -n "$(find "$f" -perm -002 -print 2>/dev/null)" ]] \
      || { [[ -n "$(find "$f" -perm -020 -print 2>/dev/null)" ]] && ! private_group_file "$f"; }; then

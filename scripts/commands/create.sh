@@ -10,9 +10,13 @@
 #   PUSH_AS=fix-auth-bug WITH=api scripts/commands/create.sh     # work on branch fix-auth-bug, pushing to origin/fix-auth-bug
 #   scripts/commands/create.sh                                   # no WITH and no DEFAULT_REPOS: an empty sandbox
 #   EMPTY=1 scripts/commands/create.sh                           # an empty sandbox, even with DEFAULT_REPOS set
+#   CLI_AGENT=pi scripts/commands/create.sh                      # make new AGENT=pi: the sandbox's own agent
 #
-# Then `make run N=<n>` starts the agent (AGENT in .env) in a Docker Sandbox
-# (sbx) VM on it.
+# Then `make run N=<n>` starts the agent in a Docker Sandbox (sbx) VM on it:
+# AGENT in .env, or the one named with AGENT=<spec> (a profile in
+# user-config/agents/, a built-in agent or a kit reference), which is saved
+# as the sandbox's own so later .env changes don't affect it
+# (scripts/lib/profiles.sh).
 #
 # Repos: WITH's repos in the order given, then any DEFAULT_REPOS not already
 # named. A default repo named in WITH uses WITH's branch, if it gives one.
@@ -68,6 +72,8 @@ if [[ -n "${EMPTY:-}" && -n "${WITH//[[:space:]]/}" ]]; then
   PROBLEMS+=("EMPTY=1 makes a sandbox with no repos, so it can't take WITH -- drop one of them")
 fi
 parse_repo_specs "WITH" "${WITH:-}"
+# AGENT= on the command line: checked now, saved once the sandbox exists.
+choose_agent || true
 # WITH's repos first, in its order; then DEFAULT_REPOS not already named.
 # None at all (or EMPTY) is an empty sandbox, for make add to fill.
 requested=(${SPEC_REPOS[@]+"${SPEC_REPOS[@]}"})
@@ -218,6 +224,7 @@ done
 # ---- PUSH_AS, recorded where the agent can't change it: make push pushes
 # there, and make add makes new clones track it (read_push_as, sandbox.sh).
 record_push_as "$sandbox_dir" "${PUSH_AS:-}"
+[[ -z "${CLI_AGENT:-}" ]] || save_agent "$sandbox_dir" "$CLI_AGENT"
 
 # ---- repos `make add` could still bring in: defined in .env but not in
 # this sandbox, alphabetically. Listed in README.md and AGENTS.md because the
@@ -370,7 +377,7 @@ nested inside another repo's tree.
 Run these from the tool's folder, \`$SANDBOX_ROOT\`:
 
 \`\`\`
-make run N=$next                  # start the agent ($AGENT) in a Docker Sandbox VM on this folder; again to reattach
+make run N=$next                  # start the agent ($AGENT_SPEC) in a Docker Sandbox VM on this folder; again to reattach
 make add N=$next REPO="<repo>[:<branch>] ..."   # clone more repos into this sandbox (see "Repos added after creation")
 make fetch N=$next [REPO="<repo>"]  # fetch origin's new commits; leaves .fetch-<repo>.bundle here for the agent to apply
 make stop N=$next                 # stop the VM, keeping its state; make run starts it again
@@ -576,7 +583,7 @@ else
   echo "Repos: none yet -- add them with ${C_BOLD}make add N=$next REPO=\"<repo>[:<branch>] ...\"${C_RESET}"
 fi
 echo "Workspace notes written: README.md, AGENTS.md, $(printf '%s, ' "${AGENT_SHIMS[@]}" | sed 's/, $//')"
-echo "Start the agent ($AGENT): ${C_BOLD}make run N=$next${C_RESET}"
+echo "Start the agent ($(run_agent_label)${CLI_AGENT:+, saved for this sandbox}): ${C_BOLD}make run N=$next${C_RESET}"
 
 # Repeat the resumed-branch notice last, so it can't scroll away unseen.
 if (( ${#resumed[@]} )); then

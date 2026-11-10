@@ -1,0 +1,2 @@
+pi-local-models.models=[{"id":"REPLACE-WITH-A-MODEL-ID","contextWindow":32768}]
+pi-local-models.default_model=REPLACE-WITH-A-MODEL-ID

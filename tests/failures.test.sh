@@ -28,7 +28,8 @@ test_sbx_create_flags_must_be_flags() {
   assert_contains "--mount" "--mount binds a host folder"
   assert_contains "--skills readwrite" "--skills readwrite lets the agent"
   assert_eq "tree unchanged" "$(tree_state)" "$before"
-  # Control: flags with values, in both spellings, pass.
+  # Control: flags with values, in both spellings, pass (a local kit must exist).
+  mkdir "$TOOL/k"
   echo 'SBX_CREATE_FLAGS="--cpus 4 -m 8g --skills readonly -e FOO=1 --kit=./k"' >> "$TOOL/.env"
   mk new
   assert_ok "make new with only flags"

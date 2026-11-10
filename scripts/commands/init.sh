@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# First-time setup: create your .env from .env.example if you don't have one
-# yet, then check this machine with doctor.sh. Installs nothing, and never
-# touches an existing .env.
+# First-time setup: create your .env from .env.example and user-config/ from
+# user-config.example/ if you don't have them yet, then check this machine
+# with doctor.sh. Installs nothing, and never touches an existing .env or
+# user-config/.
 #
 # Usage: scripts/commands/init.sh        (or: make init)
 #
@@ -12,6 +13,11 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/all.sh"
 doctor="$(dirname "${BASH_SOURCE[0]}")/doctor.sh"
+
+if [[ ! -e "$USER_CONFIG_DIR" && -d "$TOOL_ROOT/user-config.example" ]]; then
+  cp -R "$TOOL_ROOT/user-config.example" "$USER_CONFIG_DIR"
+  echo "${C_GREEN}Created${C_RESET} $USER_CONFIG_DIR from user-config.example/ (agent profiles and kits; see its README.md)."
+fi
 
 if [[ -f "$ENV_FILE" ]]; then
   echo "You already have $ENV_FILE -- leaving it as it is."

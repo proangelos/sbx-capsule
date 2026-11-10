@@ -182,8 +182,8 @@ To have the agent push instead, see
 ```sh
 make init                                      # first time: create .env, check tools
 make doctor                                    # check tools, sbx, .env and repos
-make new WITH="repo repo:branch ..." [TITLE=name] [PUSH_AS=branch]   # or EMPTY=1: no repos yet
-make run N=<n> [ARGS="..."] [FRESH=1]          # the agent in a Docker Sandbox VM
+make new WITH="repo repo:branch ..." [TITLE=name] [PUSH_AS=branch] [AGENT=name]   # or EMPTY=1: no repos yet
+make run N=<n> [ARGS="..."] [FRESH=1] [AGENT=name]   # the agent in a Docker Sandbox VM
 make code N=<n>                                # VS Code, running inside that VM
 make stop N=<n>                                # stop its VM, keeping its state (ALL=1: every VM)
 make prune [YES=1]                             # remove VMs whose sandbox folder is gone
@@ -199,8 +199,8 @@ make help
 | --- | --- |
 | `make init` | Copies `.env.example` to `.env` if you don't have one, then checks your tools. Never overwrites an existing `.env`. |
 | `make doctor` | Read-only check of everything the tool needs, listing every problem with how to fix it: bash, git and make versions; `sbx` installed and healthy (via `sbx diagnose`: virtualization, sign-in, network policy); your `.env`; each repo's checkout, `origin` and start branch; whether the VM can reach each repo's git host; and host safety: no sbx VM can write this checkout (outside its sandbox folders) or a source checkout, sbx doesn't forward your SSH agent while `AGENT_GIT_PUSH=no`, `.env` isn't writable by others, plus notes on secrets and settings that widen what a VM can reach; and each sandbox clone's git config and hooks, for anything that would run on the host if git there used it. |
-| `make new` | Creates the next numbered sandbox (`<n>/`, or `<n>-<TITLE>/`) with a clone of each repo. With no repos to clone, or with `EMPTY=1`, the sandbox starts empty, for `make add` to fill. |
-| `make run` | Starts `AGENT` in the sandbox's VM, creating the VM on first use and reattaching after. `ARGS` are extra arguments for the agent. `FRESH=1` removes the sandbox's VM first and creates a new one from your current `.env`, to pick up a changed `AGENT` or `SBX_CREATE_FLAGS`: the sandbox's files stay, the agent's history inside the VM goes. Refuses to start while any sbx VM can write this checkout (outside its sandbox folders) or a source checkout, or while sbx forwards your SSH agent with `AGENT_GIT_PUSH=no` or mounts your agent's skills store writable (`skills.defaultMode=readwrite`) (see Troubleshooting). |
+| `make new` | Creates the next numbered sandbox (`<n>/`, or `<n>-<TITLE>/`) with a clone of each repo. With no repos to clone, or with `EMPTY=1`, the sandbox starts empty, for `make add` to fill. `AGENT=<name>` gives it its own agent (see [Choosing an agent](#choosing-an-agent)). |
+| `make run` | Starts the sandbox's agent (its own, else `AGENT`) in its VM, creating the VM on first use and reattaching after. `ARGS` are extra arguments for the agent. `FRESH=1` removes the sandbox's VM first and creates a new one from your current `.env`, to pick up a changed `AGENT` or `SBX_CREATE_FLAGS`: the sandbox's files stay, the agent's history inside the VM goes. `AGENT=<name>` makes that the sandbox's own agent (with `FRESH=1` if its VM runs another). Refuses to start while any sbx VM can write this checkout (outside its sandbox folders) or a source checkout, or while sbx forwards your SSH agent with `AGENT_GIT_PUSH=no` or mounts your agent's skills store writable (`skills.defaultMode=readwrite`) (see Troubleshooting). |
 | `make code` | Opens the sandbox in VS Code, with VS Code itself (Git, terminals, extensions) running inside its VM, so nothing the agent wrote runs on your host. Needs the VM (`make run` first) and a one-time setup -- see [Reviewing and editing a sandbox](#reviewing-and-editing-a-sandbox). Refuses, listing why, if VS Code or SSH would pass your credentials into the VM. |
 | `make stop` | Stops a sandbox's VM without removing it. The agent's history and settings inside the VM are kept, and `make run` starts it again. `ALL=1` stops every running VM this checkout made. The sandbox's files are on the host, so they're never affected. |
 | `make prune` | Removes the VMs left over from sandboxes that are gone (a sandbox folder removed by hand, or destroyed while `sbx` wasn't installed), so `make new` can use their numbers again. Lists them and asks once; `YES=1` skips the question. Only ever this checkout's VMs, never other `sbx` VMs on the machine. |
@@ -257,8 +257,8 @@ updates never conflicts with your settings.
 | `SOURCE_BRANCHES[name]=branch` | yes, for every repo | The branch sandboxes start from (fetched fresh from origin) |
 | `DEFAULT_REPOS=(name ...)` | no | Repos included in every `make new`; empty means only what `WITH` names |
 | `REPO_GROUP[name]`, `REPO_DESC[name]` | no | Only used to group and describe repos in each sandbox's README |
-| `AGENT` | no (default `claude`) | The coding agent new sandbox VMs run -- see [Choosing an agent](#choosing-an-agent) |
-| `AGENT_ARGS[agent]` | no (default none) | Default arguments for that agent, on every `make run` |
+| `AGENT` | no (default `claude`) | The coding agent new sandbox VMs run, unless a sandbox has its own: a built-in agent, a kit reference or a profile name -- see [Choosing an agent](#choosing-an-agent) |
+| `AGENT_ARGS[agent]` | no (default none) | Default arguments for that agent (a built-in name or kit reference), on every `make run` |
 | `SBX_CREATE_FLAGS` | no (default none) | Extra `sbx run` flags used when a VM is created (`--cpus`, `--memory`, `-t`, `--kit`, `-p`, ...) |
 | `SBX_NAME_PREFIX` | no (default none) | Put in front of new VMs' names: `<prefix>-<checkout id>-<sandbox>` instead of `<checkout id>-<sandbox>`. Lowercase letters, digits and `-`. Existing VMs keep their names; `make run N=<n> FRESH=1` renames one |
 | `AGENT_GIT_PUSH` | no (default `no`) | `yes` lets the agent push its branch -- see [Letting the agent push](#letting-the-agent-push) |
@@ -284,7 +284,8 @@ declare -A SOURCE_BRANCHES=(
 
 Every command validates it first and lists every problem at once: a repo
 with no `SOURCE_BRANCHES` entry, a `DEFAULT_REPOS` name that isn't in
-`REPOS`, an invalid repo name, an unknown `AGENT` or `AGENT_ARGS` key, an
+`REPOS`, an invalid repo name, an unknown `AGENT` or `AGENT_ARGS` key, a
+problem in the profile `AGENT` names, an
 `SBX_CREATE_FLAGS` flag the tool manages itself, an `SBX_NAME_PREFIX` sbx
 wouldn't accept, a blank `AGENT_INSTRUCTIONS` entry, or a missing
 `SANDBOX_NOTES_FILE`.
@@ -293,21 +294,32 @@ wouldn't accept, a blank `AGENT_INSTRUCTIONS` entry, or a missing
 
 Set `AGENT` in `.env` to any agent `sbx` has built in -- `claude`, `codex`,
 `copilot`, `cursor`, `devin`, `docker-agent`, `droid`, `gemini`, `kiro`,
-`opencode`, or `shell` (a plain shell) -- or to an sbx kit reference (a
-local path, git URL or OCI ref, for a custom agent image). It defaults to
-`claude`.
+`opencode`, or `shell` (a plain shell) -- to an sbx kit reference (a
+local path, git URL or OCI ref, for a custom agent image), or to the name
+of an agent profile (see [Kit-based agents and
+profiles](#kit-based-agents-and-profiles)). It defaults to `claude`.
 
+- **One sandbox, its own agent.** `make new AGENT=<name>` or
+  `make run N=<n> AGENT=<name>` gives that sandbox its own agent: it's saved
+  outside the sandbox (`.state/<n>/agent`), and from then on `.env`'s
+  `AGENT` no longer decides it. `<name>` is anything `AGENT` accepts. Only
+  a command-line `AGENT=` counts; one in your shell's environment doesn't.
+  `make list` shows each sandbox's own agent ("-" for one that follows
+  `.env`).
 - **Fixed per VM.** `sbx` sets a VM's agent when it's created, so changing
   `AGENT` only affects VMs created afterwards. `make run` on an existing VM
   always reattaches to the agent it was made with, and warns if that's no
-  longer `AGENT`. To switch a sandbox: `make run N=<n> FRESH=1` recreates
-  its VM (the clones are on the host, so nothing in them is lost; the
-  agent's history inside the old VM is).
+  longer the sandbox's agent. To switch a sandbox: `make run N=<n> FRESH=1`
+  recreates its VM (the clones are on the host, so nothing in them is lost;
+  the agent's history inside the old VM is), and
+  `make run N=<n> AGENT=<name> FRESH=1` switches it to another agent.
+  Naming a different agent without `FRESH=1` is refused.
 - **`AGENT_ARGS[agent]="..."`** -- default arguments for that agent (say
   `--model ...`), passed on every `make run`, before any `ARGS="..."` from
   the command line. Set one entry without redeclaring the map:
-  `AGENT_ARGS[codex]="--model ..."`. Keyed by agent so switching `AGENT`
-  doesn't carry the wrong flags over.
+  `AGENT_ARGS[codex]="--model ..."`. Keyed by agent (a built-in name or a
+  kit reference) so switching `AGENT` doesn't carry the wrong flags over. A
+  profile has its own `ARGS` instead.
 - **`SBX_CREATE_FLAGS="..."`** -- anything else `sbx run` accepts at
   creation: `--cpus 8 --memory 8g`, `-t <template>`, `--kit <mixin>`,
   `-p 3000`, `--env-file <file>`, ... (see `sbx run --help`). Flags only:
@@ -315,7 +327,10 @@ local path, git URL or OCI ref, for a custom agent image). It defaults to
   word is refused, since `sbx` would mount it as another folder. `--name`,
   `--clone`, `--cloud`, `--detach` and `--rm` are refused, since the tool
   manages those itself, and so are `--mount` and `--skills readwrite`,
-  which reach into the host.
+  which reach into the host. Relative paths for `--kit`, `--kit-args-file`
+  and `--env-file` are taken from the tool's folder (wherever you run make
+  from); they must exist, mustn't be inside a sandbox folder, and can't
+  contain spaces.
 - **Instructions.** Every sandbox gets `AGENTS.md`, which codex, copilot,
   cursor, opencode, droid, devin and kiro read directly, plus `CLAUDE.md`
   and `GEMINI.md` shims that import it for Claude Code and Gemini CLI. For
@@ -325,6 +340,56 @@ local path, git URL or OCI ref, for a custom agent image). It defaults to
   key held by the sbx proxy, never exposed inside the VM:
   `sbx secret set openai` (codex), `sbx secret set google` (gemini), and so
   on (`sbx secret set --help` lists the services).
+
+### Kit-based agents and profiles
+
+`sbx` can run agents it doesn't have built in, packaged as **kits**: Pi,
+for example, is published as `dhi.io/pi:latest`, and a small local kit (a
+*mixin*) added with `--kit` can configure it, say to use models served by
+your own machine. A **profile** keeps one such setup under a name, so a
+sandbox can use it with `AGENT=<name>`.
+
+**Your own files: `user-config/`.** Profiles, local kits and kit args files
+go in `user-config/` in the tool's folder: gitignored like `.env`, separate
+for each checkout of the tool, and mounted by no VM, so no agent can change
+what the next VM is created with. `make init` creates it from the tracked
+`user-config.example/`, which sets up Pi on a local model server (its
+README.md has the steps).
+
+**A profile** is `user-config/agents/<name>.env`, plain bash like `.env`,
+setting only these (anything else is refused):
+
+```bash
+# user-config/agents/pi.env
+AGENT="dhi.io/pi:latest"     # a built-in agent or a kit reference, not another profile
+ARGS=""                      # the agent's arguments, like AGENT_ARGS[...] in .env
+CREATE_FLAGS="--kit user-config/kits/pi-local-models --kit-args-file user-config/pi-local-models.args"
+CREDENTIALS=""               # names of the sbx secrets it uses, never their values
+```
+
+- `CREATE_FLAGS` comes after `.env`'s `SBX_CREATE_FLAGS`, with the same
+  checks, and like it only applies when a VM is created. `-e`, `--env` and
+  `--env-file` are refused: the agent can read every variable they pass.
+- A profile may share a built-in agent's name (a `claude.env` with
+  `ARGS="--model opus"`, say); the profile wins.
+- The sandbox saves the profile's *name*, so editing the profile changes the
+  sandbox too: its `ARGS` on the next `make run`, its `AGENT` and
+  `CREATE_FLAGS` on the next `FRESH=1`. `make run` notes when a profile
+  changed since its VM was created.
+- `make doctor` checks every profile, and that nobody else can write them
+  (they're run as bash, like `.env`).
+
+**API keys** never go in a profile, a kit or an args file. Set each one on
+the host with `sbx secret set <service>`: the sbx proxy adds the real key
+to requests to that service, and the VM only ever sees a placeholder. List
+the names in the profile's `CREDENTIALS` as a reminder; `make run` prints
+them when it creates the VM. The agent can't read a key held this way, but
+it can still use it, so prefer keys with spending limits.
+
+**Local model servers** on the host are reached from inside the VM as
+`host.docker.internal:<port>`, and need a network rule: the sbx proxy
+matches them as `localhost:<port>`. The example kit allows exactly that one
+port (see its comments).
 
 ## Reviewing and editing a sandbox
 
