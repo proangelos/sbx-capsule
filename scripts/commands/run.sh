@@ -84,7 +84,6 @@ fi
 if [[ -n "$vm_exists" && -n "${CLI_AGENT:-}" && "$CLI_AGENT" != "${SANDBOX_AGENT:-$AGENT}" ]]; then
   PROBLEMS+=("sandbox $n's VM runs $(safe_text "${SANDBOX_AGENT:-$AGENT}"), and a VM keeps the agent it was created with. To switch to $(safe_text "$CLI_AGENT"), recreate it (the sandbox's files stay; the agent's history inside the VM goes): make run N=$n AGENT=$(safe_text "$CLI_AGENT") FRESH=1")
 fi
-mounts=("$sandbox_dir")
 report_problems "can't start sandbox $n:"
 validate_config warn
 # validate_config resolved .env's AGENT (resolve_agent); the sandbox's own
@@ -141,15 +140,9 @@ if [[ -n "$vm_exists" ]]; then
 fi
 
 # The sandbox's VS Code workspace settings, mounted read-only so the agent
-# can't switch credential and port forwarding back on (make code).
-ensure_vscode_dir "$sandbox_dir" || die "couldn't write $sandbox_dir/.vscode/settings.json"
-mounts+=("$sandbox_dir/.vscode:ro")
-
-# .env's SBX_CREATE_FLAGS, then the profile's CREATE_FLAGS, with relative
-# kit and file paths taken from TOOL_ROOT (resolve_create_flags).
-CREATE_ARGV=()
-resolve_create_flags "$SBX_CREATE_FLAGS"
-resolve_create_flags "$RUN_CREATE_FLAGS"
+# can't switch credential and port forwarding back on (make code); same
+# workspaces and create flags as make code (vm_create_args in agents.sh).
+vm_create_args "$sandbox_dir" || die "couldn't write $sandbox_dir/.vscode/settings.json"
 sbx_agent="$RUN_AGENT"
 is_kit_ref "$sbx_agent" && is_local_ref "$sbx_agent" && sbx_agent="$(tool_path "$sbx_agent")"
 agent_args
@@ -160,4 +153,4 @@ save_profile_sum "$sandbox_dir"
   || echo "note: profile $RUN_PROFILE uses these sbx secrets: $RUN_CREDENTIALS. Set any that are missing on the host: sbx secret set <name> (the VM only sees a placeholder)"
 echo "Creating ${C_BOLD}$name${C_RESET} ($(run_agent_label)) on $sandbox_dir"
 warn_without_terminal
-exec sbx run --name "$name" ${CREATE_ARGV[@]+"${CREATE_ARGV[@]}"} "$sbx_agent" "${mounts[@]}" ${AGENT_ARGV[@]+-- "${AGENT_ARGV[@]}"}
+exec sbx run --name "$name" ${CREATE_ARGV[@]+"${CREATE_ARGV[@]}"} "$sbx_agent" "${VM_WORKSPACES[@]}" ${AGENT_ARGV[@]+-- "${AGENT_ARGV[@]}"}

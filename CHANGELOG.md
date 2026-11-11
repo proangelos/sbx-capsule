@@ -18,12 +18,13 @@ how to migrate.
   one. Only those four settings are allowed; `-e`/`--env`/`--env-file` are
   refused in a profile, since the agent can read what they pass. `make
   doctor` checks every profile.
-- A sandbox's own agent: `make new AGENT=<name>` or
-  `make run N=<n> AGENT=<name>` saves it outside the sandbox
-  (`.state/<n>/agent`), so later changes to `.env`'s `AGENT` don't affect
-  it. Switching a sandbox whose VM runs another agent needs `FRESH=1`.
-  Only a command-line `AGENT=` counts. `make list` shows each sandbox's own
-  agent, and `make run` notes when a profile changed since its VM was made.
+- A sandbox's own agent: `make new AGENT=<name>`, `make run N=<n>
+  AGENT=<name>` or `make code N=<n> AGENT=<name>` saves it outside the
+  sandbox (`.state/<n>/agent`), so later changes to `.env`'s `AGENT` don't
+  affect it. Switching a sandbox whose VM runs another agent needs
+  `FRESH=1`. Only a command-line `AGENT=` counts. `make list` shows each
+  sandbox's own agent, and `make run` notes when a profile changed since
+  its VM was made.
 - `user-config/` (gitignored): your own profiles, local kits and kit args
   files for this checkout, outside every VM. `make init` creates it from the
   tracked `user-config.example/`, which sets up Pi on a model server on your
@@ -46,6 +47,13 @@ how to migrate.
 - `make run` on an existing VM compares its agent with the sandbox's agent
   only when sbx reports a built-in one, so a VM made from a kit no longer
   gets a spurious "created with" warning.
+- `make code N=<n>` creates the sandbox's VM when it has none, instead of
+  stopping with "start it once with make run". It makes the same VM `make run`
+  would (the sandbox's own agent, else `AGENT`, including a profile's
+  `CREATE_FLAGS`, and the same mounts and `SBX_CREATE_FLAGS`) with
+  `sbx create`, which doesn't attach the agent, so `make run N=<n>` or a
+  terminal in the VM still runs it. Every check runs before anything is
+  created. Nothing changes for an existing VM.
 
 - The generated `AGENTS.md` no longer tells the agent to commit: its git
   rule now covers only pushing ("never push", or "you may push your branch"

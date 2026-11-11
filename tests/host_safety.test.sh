@@ -175,3 +175,56 @@ test_doctor_notes_clipboard_copy() {
   mk doctor
   assert_contains "notes it" "clipboard.textCopy"
 }
+
+# make code on a sandbox with no VM creates one only once every check has
+# passed. Here VS Code can't be found, so it must refuse and create nothing.
+test_code_creates_no_vm_when_it_refuses() {
+  mk new
+  mk code N=1
+  assert_fails "make code without VS Code"
+  assert_contains "says why" "couldn't find VS Code"
+  local calls
+  calls="$(cat "$FAKE_SBX_DIR/calls" 2>/dev/null || true)"
+  [[ "$calls" != *"create --name"* ]] || _fail "no sbx create was sent (calls: $calls)"
+  [[ ! -s "$FAKE_SBX_DIR/vms" ]] || _fail "no VM was recorded"
+}
+
+# make code on an existing VM that runs another agent refuses too (VS Code
+# is also missing here, so it fails either way: the guard's message must be
+# in the output).
+test_code_switching_agent_needs_fresh() {
+  mk new
+  mk run N=1
+  mk code N=1 AGENT=codex
+  assert_fails "a different agent on an existing VM"
+  assert_contains "says how" "make run N=1 AGENT=codex FRESH=1"
+  assert_missing "nothing saved" "$TOOL/.state/1/agent"
+}
+
+# The VM make code creates gets the same agent, sandbox folder and read-only
+# .vscode mount as make run's, with SBX_CREATE_FLAGS and the resolved
+# agent's CREATE_FLAGS passed through.
+test_vm_creation_args_match_make_run() {
+  mk new
+  echo 'SBX_CREATE_FLAGS="--cpus 2"' >> "$TOOL/.env"
+  # shellcheck disable=SC2016  # $1 belongs to the inner bash
+  in_tool bash -c 'source scripts/lib/all.sh; vm_create_args "$1" && printf "%s\n" "${VM_WORKSPACES[@]}" && printf "%s\n" "${CREATE_ARGV[@]}"' _ "$TOOL/1"
+  assert_ok "vm_create_args"
+  assert_eq "workspaces: the folder, then .vscode read-only; flags: SBX_CREATE_FLAGS" "$OUT" "$TOOL/1
+$TOOL/1/.vscode:ro
+--cpus
+2"
+  assert_exists "the .vscode settings were written" "$TOOL/1/.vscode/settings.json"
+
+  # A profile's CREATE_FLAGS ride along too, as choose_agent leaves them in
+  # RUN_CREATE_FLAGS before vm_create_args runs.
+  mkdir -p "$TOOL/user-config/agents"
+  printf 'AGENT=claude\nCREATE_FLAGS="--memory 2gb"\n' > "$TOOL/user-config/agents/big.env"
+  # shellcheck disable=SC2016  # $1 belongs to the inner bash
+  in_tool bash -c 'source scripts/lib/all.sh; AGENT=big choose_agent && vm_create_args "$1" && printf "%s\n" "${CREATE_ARGV[@]}"' _ "$TOOL/1"
+  assert_ok "vm_create_args with a profile's CREATE_FLAGS"
+  assert_eq "the profile's flags come after the .env ones" "$OUT" "--cpus
+2
+--memory
+2gb"
+}

@@ -35,14 +35,14 @@ write_vscode_settings() {
 }
 
 # vscode_dir_problems <sandbox_dir>  -- before a VM is created: the
-# sandbox's .vscode must be missing (make run creates it) or a real folder
-# holding nothing but settings.json, since the whole folder is mounted
-# read-only and VS Code would use anything else in it.
+# sandbox's .vscode must be missing (make run or make code creates it) or a
+# real folder holding nothing but settings.json, since the whole folder is
+# mounted read-only and VS Code would use anything else in it.
 vscode_dir_problems() {
   local d="$1/.vscode" f
   [[ -e "$d" || -L "$d" ]] || return 0
   if [[ -L "$d" || ! -d "$d" ]]; then
-    PROBLEMS+=("$d isn't a folder -- remove it; make run puts this tool's VS Code settings there")
+    PROBLEMS+=("$d isn't a folder -- remove it; make run or make code puts this tool's VS Code settings there")
     return 0
   fi
   for f in "$d"/* "$d"/.[!.]*; do
