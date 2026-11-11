@@ -20,6 +20,35 @@ Planned work for sbx-capsule, most important first within each section.
     `.vscode` from inside it fail, and `make code` connects; the README's
     "haven't been tested" line is removed.
 
+- [ ] **Decide whether `make code` should open an existing VM whose saved agent is invalid**
+  - Why: `code.sh` calls `choose_agent` every time, so `make code` on a
+    sandbox with a VM now refuses when its saved agent no longer resolves
+    (a profile in `.state/<n>/agent` whose file was deleted, say). Before
+    profiles, `make code` opened such a VM: an existing VM doesn't need the
+    agent resolved. `make run` refuses in the same case, so this may be
+    wanted.
+  - Done when: either `code.sh` keeps `choose_agent`'s problems only when
+    it will create a VM (`rc == 1`) or `AGENT=` was given, with a test that
+    `make code` opens the VM with a bad saved agent; or the refusal is
+    kept on purpose and the `code.sh` header says so.
+
+- [ ] **Save `AGENT=` from `make code` on an existing VM, as `make run` does**
+  - Why: `make run N=<n> AGENT=<x>` on a VM already running `<x>` saves
+    `<x>` as the sandbox's own agent when it has none
+    (`run.sh`: `[[ -n "${CLI_AGENT:-}" && -z "$SANDBOX_AGENT" ]] && save_agent`).
+    `make code` saves it only when it creates the VM, so the two commands
+    leave different state for the same request.
+  - Done when: `code.sh` saves it in that case too, the README's "One
+    sandbox, its own agent" bullet still holds for both, and a test covers
+    `make code N=<n> AGENT=<x>` on an existing `<x>` VM writing
+    `.state/<n>/agent`.
+
+- [ ] **Mention `AGENT=` in the Makefile's `code` help**
+  - Why: `make code` accepts `AGENT=<name>`, but its `##` help text shows
+    only `make code N=<n>` (`run`'s shows `[AGENT=profile]`).
+  - Done when: the `code` target's help reads like
+    `(make code N=<n> [AGENT=profile])`.
+
 ## Later
 
 ## Research
