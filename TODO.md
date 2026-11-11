@@ -20,6 +20,35 @@ Planned work for sbx-capsule, most important first within each section.
     `.vscode` from inside it fail, and `make code` connects; the README's
     "haven't been tested" line is removed.
 
+- [ ] **Decide whether `make code` should open an existing VM whose saved agent is invalid**
+  - Why: `code.sh` calls `choose_agent` every time, so `make code` on a
+    sandbox with a VM now refuses when its saved agent no longer resolves
+    (a profile in `.state/<n>/agent` whose file was deleted, say). Before
+    profiles, `make code` opened such a VM: an existing VM doesn't need the
+    agent resolved. `make run` refuses in the same case, so this may be
+    wanted.
+  - Done when: either `code.sh` keeps `choose_agent`'s problems only when
+    it will create a VM (`rc == 1`) or `AGENT=` was given, with a test that
+    `make code` opens the VM with a bad saved agent; or the refusal is
+    kept on purpose and the `code.sh` header says so.
+
+- [ ] **Save `AGENT=` from `make code` on an existing VM, as `make run` does**
+  - Why: `make run N=<n> AGENT=<x>` on a VM already running `<x>` saves
+    `<x>` as the sandbox's own agent when it has none
+    (`run.sh`: `[[ -n "${CLI_AGENT:-}" && -z "$SANDBOX_AGENT" ]] && save_agent`).
+    `make code` saves it only when it creates the VM, so the two commands
+    leave different state for the same request.
+  - Done when: `code.sh` saves it in that case too, the README's "One
+    sandbox, its own agent" bullet still holds for both, and a test covers
+    `make code N=<n> AGENT=<x>` on an existing `<x>` VM writing
+    `.state/<n>/agent`.
+
+- [ ] **Mention `AGENT=` in the Makefile's `code` help**
+  - Why: `make code` accepts `AGENT=<name>`, but its `##` help text shows
+    only `make code N=<n>` (`run`'s shows `[AGENT=profile]`).
+  - Done when: the `code` target's help reads like
+    `(make code N=<n> [AGENT=profile])`.
+
 ## Later
 
 ## Research
@@ -29,15 +58,12 @@ Planned work for sbx-capsule, most important first within each section.
     local hosting.
   - Done when: it's clear whether sbx kits can run arbitrary agents. If
     they can, plan general support; if not, write down why.
-
-- [ ] **Let make commands pick a one-off agent**
-  - Why: once arbitrary agents are supported (see the Pi item), a user
-    should be able to run a specific agent for one command, without
-    changing the default or the agent set in `.env`.
-  - Done when: the relevant make commands (e.g. `make run`, `make new`)
-    accept an agent override on the command line that takes precedence over
-    both the built-in default and the `.env` setting, and `make help`,
-    the README and `tests/` cover it.
+  - Progress: they can. Pi runs as `dhi.io/pi:latest` with the example
+    mixin in `user-config.example/` (local models), and profiles plus
+    `AGENT=` cover choosing it per sandbox. Left: confirm cloud providers
+    work through `sbx secret` for arbitrary hosts, check `CREDENTIALS`
+    against `sbx secret ls`, and record what `sbx ls` reports for a kit VM
+    in docs/DOCKER_SANDBOXES.md.
 
 - [ ] **Explore sbx templates**
   - Why: `sbx template save` snapshots a VM. A prepared template could cut

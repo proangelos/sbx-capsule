@@ -7,11 +7,13 @@ test_bad_env_lists_every_problem() {
   cat >> "$TOOL/.env" <<'EOF'
 AGENT_GIT_PUSH=maybe
 SBX_CREATE_FLAGS="--name x"
+AGENT_INSTRUCTIONS=("fine" "  ")
 EOF
   mk new
   assert_fails "make new with a bad .env"
   assert_contains "AGENT_GIT_PUSH" "AGENT_GIT_PUSH='maybe'"
   assert_contains "reserved flag" "--name"
+  assert_contains "a blank instruction" "AGENT_INSTRUCTIONS[1] is empty"
   assert_contains "nothing changed" "Nothing was created or changed"
   assert_eq "tree unchanged" "$(tree_state)" "$before"
 }
@@ -26,7 +28,8 @@ test_sbx_create_flags_must_be_flags() {
   assert_contains "--mount" "--mount binds a host folder"
   assert_contains "--skills readwrite" "--skills readwrite lets the agent"
   assert_eq "tree unchanged" "$(tree_state)" "$before"
-  # Control: flags with values, in both spellings, pass.
+  # Control: flags with values, in both spellings, pass (a local kit must exist).
+  mkdir "$TOOL/k"
   echo 'SBX_CREATE_FLAGS="--cpus 4 -m 8g --skills readonly -e FOO=1 --kit=./k"' >> "$TOOL/.env"
   mk new
   assert_ok "make new with only flags"

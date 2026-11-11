@@ -1,0 +1,103 @@
+# syntax=docker/sandbox-kit:3
+#
+# Pi (local models): a MIXIN that points the Pi coding agent at an
+# OpenAI-compatible model server on the host, such as llama-swap, Ollama's
+# /v1 endpoint, LM Studio or vLLM. It's used on top of the published Pi
+# workload, dhi.io/pi:latest, through the example profile
+# user-config/agents/pi.env (README.md, "Kit-based agents and profiles").
+#
+# Checked by hand with sbx and dhi.io/pi:latest against llama-swap on the
+# host's 127.0.0.1:8080: Pi starts on the configured model with no network
+# approval prompt. Kits are an experimental sbx feature (v3 kits need sbx
+# 0.45+), so recheck after upgrading sbx or the Pi image.
+#
+# Your models and the startup model come from a kit args file, so this file
+# needn't change: see user-config/pi-local-models.args.example. Args are the
+# kit folder's name, a dot, then the arg (pi-local-models.models=...).
+#
+# Why each piece exists:
+#   - Inside the VM, localhost is the VM. The host's server is reached as
+#     host.docker.internal:<port> (baseUrl below).
+#   - sbx's proxy blocks that unless network policy allows it, and it matches
+#     host services as localhost:<port>, so that's the rule that counts;
+#     host.docker.internal:<port> is listed too. The port is always given: a
+#     portless entry would open every port the host listens on.
+#   - Pi only knows its built-in providers plus ~/.pi/agent/models.json, so
+#     that file is written when the VM is created.
+#   - dhi.io/pi ships its own ~/.pi/agent/settings.json, and with
+#     overwrite: false this kit's was silently skipped. So settings.json is
+#     overwritten, repeating the image's own keys ($schema,
+#     defaultProjectTrust); recheck them when the image changes.
+#
+# A different port means changing it in three places: both allow entries and
+# baseUrl. Files are written only when a VM is created, so after editing this
+# kit (or the args file), recreate the VM: make run N=<n> FRESH=1. Bump
+# `version` when you edit it, in case sbx reuses an earlier build.
+#
+# No recipe (Dockerfile): a mixin may have none (sandbox-kit spec v3, 3.5).
+# No sbx@1 or agent-context: the Pi workload owns the launch and AGENTS.md.
+schemaVersion: "3"
+kind: mixin
+displayName: Pi (local models)
+description: >-
+  Points Pi at an OpenAI-compatible server on the host (port 8080 by default)
+  by allowing that one port and seeding Pi's models.json and settings.json.
+version: "0.1.1"
+
+# The dhi.io/pi workload declares `provides: ["pi"]`.
+requires: ["pi"]
+provides: ["pi-local-models"]
+
+args:
+  models:
+    # A JSON array of Pi model entries, on one line. Each "id" must be a model
+    # the server serves (GET http://127.0.0.1:8080/v1/models on the host).
+    # Other per-model fields from Pi's models docs can go here too: set
+    # contextWindow to what the model really runs with, since Pi assumes
+    # 128000 when it's unset.
+    default: '[{"id": "REPLACE-WITH-A-MODEL-ID"}]'
+    description: JSON array of Pi model entries served by the host's server
+  default_model:
+    # Pi's startup model (settings.json "defaultModel"): one of the ids in
+    # `models`. No quotes: it's already quoted below.
+    default: REPLACE-WITH-A-MODEL-ID
+    description: Model id Pi starts with
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - localhost:8080
+          - host.docker.internal:8080
+
+  - type: com.docker.sandbox/lifecycle@1
+    config:
+      files:
+        - path: /home/agent/.pi/agent/models.json
+          content: |
+            {
+              "providers": {
+                "local": {
+                  "name": "Local models (host)",
+                  "baseUrl": "http://host.docker.internal:8080/v1",
+                  "api": "openai-completions",
+                  "apiKey": "local",
+                  "models": ${{ kit.args.models }}
+                }
+              }
+            }
+          mode: "0644"
+          overwrite: false
+          description: Pi provider for the host's model server
+        - path: /home/agent/.pi/agent/settings.json
+          content: |
+            {
+              "$schema": "https://pi.dev/schemas/settings.schema.json",
+              "defaultProjectTrust": "always",
+              "defaultProvider": "local",
+              "defaultModel": "${{ kit.args.default_model }}"
+            }
+          mode: "0644"
+          overwrite: true
+          description: Start Pi on the local model

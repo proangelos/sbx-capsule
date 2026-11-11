@@ -129,15 +129,19 @@ EOF
   secret)   ;;
   stop)     shift; for n in "$@"; do set_status "$n" stopped; done ;;
   rm)       shift; for n in "$@"; do [[ "$n" == -* ]] || remove_vm "$n"; done ;;
-  run)
+  run|create)
     # sbx run --name <name> [flags] <agent> <workspace>... [-- args]: creates
-    # the VM if it's new (the tests only look at what was recorded).
+    # the VM if it's new (the tests only look at what was recorded). The
+    # flags listed take a value as the next word, as in real sbx. sbx create
+    # takes the same arguments but doesn't attach an agent.
     shift
     name="" agent="" wss=()
     while (( $# )); do
       case "$1" in
         --name) name="$2"; shift 2 ;;
         --) break ;;
+        --kit|--kit-arg|--kit-args-file|--env-file|--cpus|-m|--memory|-e|--env|-t|--template|--skills|-p|--publish)
+            shift 2 ;;
         -*) shift ;;
         *)  if [[ -z "$agent" ]]; then agent="$1"; else wss+=("$1"); fi; shift ;;
       esac

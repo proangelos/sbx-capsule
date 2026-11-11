@@ -53,7 +53,7 @@ Then, from this repo, `make doctor` runs `sbx diagnose` for you along with the t
 | Starting the agent | `make run N=<n>` runs `sbx run <AGENT>` on the sandbox root, so its `AGENTS.md` (and `CLAUDE.md`/`GEMINI.md`) load. Running it again reattaches |
 | Running the app | Containers on your host run from your source checkouts, not the sandbox. The agent can start its own stack inside the VM; images aren't shared between sandboxes, so expect slow first builds and more disk |
 | Network | Allow-list proxy (`balanced` policy). Package registries, GitHub over HTTPS, Docker Hub and the major model APIs are allowed. SSH (port 22, even to GitHub) and private git servers aren't; `sbx policy allow network <host>` opens a host on every port. `make doctor` checks each repo's git host. Admins may manage this centrally |
-| Pushing | By default the agent only commits and you push from the host; with `PUSH_AS`, a bare `git push` works. `AGENT_GIT_PUSH=yes` lets the agent push (see README) |
+| Pushing | By default the agent doesn't push and you push from the host; with `PUSH_AS`, a bare `git push` works. `AGENT_GIT_PUSH=yes` lets the agent push (see README) |
 | Agent config | Host settings, memory and plans (`~/.claude`, `~/.codex`, ...) don't carry over into the VM |
 | Seeing and stopping VMs | `make list` shows each sandbox's VM state; `make stop N=<n>` (or `ALL=1`) runs `sbx stop`. A stopped VM keeps its state, and `make run` starts it again |
 | Cleanup | `make destroy N=<n>` removes the VM too, and refuses if any repo has unsaved work (`FORCE=1` overrides). `make prune` removes VMs whose sandbox folder is gone |

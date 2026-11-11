@@ -41,7 +41,7 @@ scripts/
 │   ├── push.sh          make push: fetch a clone's branch out into a staging repo, push it from there; record it in .state/
 │   ├── destroy.sh       make destroy: unsaved-work check, remove VM and clones, archive notes
 │   ├── doctor.sh        make doctor: read-only check of tools, sbx, .env and repos
-│   └── init.sh          make init: create .env from .env.example, then run doctor
+│   └── init.sh          make init: create .env from .env.example and user-config/ from user-config.example/, then run doctor
 └── lib/                 sourced helpers, never executed
     ├── all.sh           the one file commands source; sets TOOL_ROOT, loads the rest in order
     ├── config.sh        declares config vars, sources .env.default then .env; SANDBOX_ROOT
@@ -49,11 +49,13 @@ scripts/
     ├── agents.sh        sbx VM naming/lookup (sbx_name, sandbox_vm, sbx_vms + _mount_hosts, tool_vms, leftover_vms), built-in agents, SBX_RESERVED_FLAGS, SBX_VALUE_FLAGS, AGENT_SHIMS, git_hosts
     ├── sandbox.sh       is_sandbox_dir, find_sandbox_dir, is_clone (never a symlink), has_symlink_under, GENERATED_FILES, FETCH_BUNDLE_GLOB, sandbox_git, snapshot_sandbox_file, state_dir_of, read_push_as, move_into_sandbox
     ├── validate.sh      PROBLEMS/report_problems, validate_config/check_config, check_sbx_create_flags, parse_repo_specs, check_start_branches
+    ├── profiles.sh      agent profiles (user-config/agents/*.env: load_profile, resolve_agent, choose_agent), kit-flag paths (tool_path, in_sandbox_folder, resolve_create_flags), each sandbox's saved agent (.state/<n>/agent)
     ├── git_version.sh   git_version, version_at_least, git_has_fix/git_has_upload_pack_fix (CVE floors), warn_old_git
     ├── push_as.sh       check_push_as, push_as_users
     ├── clone.sh         clone_repo, resumed_banner, init_staging_repo
     ├── host_safety.sh   check_host_exposure: VM mounts, source checkout paths, SSH agent forwarding, skills store mode (make run refuses on these); audit_clone; vms_running_on
     └── vscode.sh        make code: the sandbox's read-only .vscode settings, VS Code and *.sbx SSH checks, finding VS Code
+user-config.example/     tracked template for a user's gitignored user-config/ (agent profiles, local kits, kit args files); make init copies it
 docs/                    DESIGN.md (rationale), DOCKER_SANDBOXES.md (sbx setup and behaviour)
 tests/                   make test: run.sh (runner), lib.sh (scratch copies, assertions), *.test.sh, fake-sbx/sbx
 ```
@@ -161,7 +163,8 @@ Before calling a change done:
    what you change: `e2e` for the make targets, `failures` for refusals,
    `injection` for anything that reads a sandbox from the host (one
    payload per path, with a control showing the payload is live),
-   `host_safety` for checks that read sbx's VMs.
+   `host_safety` for checks that read sbx's VMs, `profiles` for agent
+   profiles, `AGENT=` and kit paths.
 2. The fake `sbx` can't run a VM, so if you changed `make run`, `make code`
    or anything else that talks to sbx, also run it against real `sbx`,
    **in a scratch copy of this repo**, never in a user's working
@@ -188,6 +191,6 @@ Before calling a change done:
 - Commit messages: an imperative, sentence-case summary line without a type
   prefix (e.g. "Remove the sbx VM on destroy and keep repos with unsaved
   work"), then a body explaining why if it isn't obvious.
-- Never commit `.env`, numbered sandbox folders or `.archive/` (all are
-  gitignored -- don't force-add them).
+- Never commit `.env`, `user-config/`, numbered sandbox folders or
+  `.archive/` (all are gitignored -- don't force-add them).
 - Don't push or open PRs unless asked.

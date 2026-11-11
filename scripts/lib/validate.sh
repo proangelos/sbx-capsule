@@ -79,17 +79,31 @@ check_agent_config() {
     PROBLEMS+=("$DEFAULTS_FILE is missing (the tool's tracked defaults) -- restore it: git -C $TOOL_ROOT checkout -- .env.default")
     return 0
   fi
-  if [[ -z "$AGENT" ]]; then
-    PROBLEMS+=("AGENT is empty -- set it to one of: ${SBX_AGENTS[*]}")
-  elif ! is_builtin_agent "$AGENT" && ! is_kit_ref "$AGENT"; then
-    PROBLEMS+=("AGENT='$AGENT' isn't an sbx agent (built in: ${SBX_AGENTS[*]}), or a kit reference (a path, git URL or OCI ref)")
-  fi
+  # AGENT may name a profile (user-config/agents/<name>.env): resolve_agent
+  # in profiles.sh checks it, and the profile, whichever it is.
+  # A command-line AGENT= is checked by the command that takes it
+  # (choose_agent), so it isn't reported twice.
+  resolve_agent "$AGENT" "AGENT" || true
   while IFS= read -r a; do
     [[ -n "$a" ]] || continue
-    is_builtin_agent "$a" || PROBLEMS+=("AGENT_ARGS[$a]: '$a' isn't an sbx agent (built in: ${SBX_AGENTS[*]})")
+    if is_builtin_agent "$a" || is_kit_ref "$a"; then
+      :
+    elif has_profile "$a"; then
+      PROBLEMS+=("AGENT_ARGS[$a]: '$a' is a profile -- set ARGS in $(profile_file "$a") instead")
+    else
+      PROBLEMS+=("AGENT_ARGS[$a]: '$a' isn't an sbx agent (built in: ${SBX_AGENTS[*]}) or a kit reference")
+    fi
   done < <(printf '%s\n' "${!AGENT_ARGS[@]}" | sort)
   [[ "$AGENT_GIT_PUSH" == yes || "$AGENT_GIT_PUSH" == no ]] \
     || PROBLEMS+=("AGENT_GIT_PUSH='$AGENT_GIT_PUSH' -- use yes or no")
+  # Guarded: bash before 4.4 calls an empty array unbound under set -u.
+  local i
+  if (( ${#AGENT_INSTRUCTIONS[@]} )); then
+    for i in "${!AGENT_INSTRUCTIONS[@]}"; do
+      [[ "${AGENT_INSTRUCTIONS[$i]}" =~ [^[:space:]] ]] \
+        || PROBLEMS+=("AGENT_INSTRUCTIONS[$i] is empty -- remove the entry, or write the instruction")
+    done
+  fi
   if [[ -n "$SANDBOX_NOTES_FILE" && ! ( -f "$SANDBOX_NOTES_FILE" && -r "$SANDBOX_NOTES_FILE" ) ]]; then
     PROBLEMS+=("SANDBOX_NOTES_FILE='$SANDBOX_NOTES_FILE' isn't a readable file")
   fi
@@ -106,24 +120,29 @@ check_agent_config() {
       PROBLEMS+=("SBX_NAME_PREFIX is ${#SBX_NAME_PREFIX} characters -- keep it to 32 or fewer: sbx refuses VM names over $SBX_NAME_MAX, and the checkout id and sandbox folder name come after it")
     fi
   fi
-  check_sbx_create_flags
+  check_sbx_create_flags SBX_CREATE_FLAGS "$SBX_CREATE_FLAGS"
 }
 
-# check_sbx_create_flags  -- SBX_CREATE_FLAGS goes to `sbx run` before the
+# check_sbx_create_flags <label> <flags>  -- SBX_CREATE_FLAGS (or a
+# profile's CREATE_FLAGS) goes to `sbx run` before the
 # agent and the sandbox folder, so it must hold flags only: a bare word
 # there would be one more folder for sbx to mount, writable. Each flag that
 # takes a value (SBX_VALUE_FLAGS) consumes the next word; any other bare
 # word is refused, so a flag sbx adds later passes as --flag=value. Also
 # refused: the flags the tool manages (SBX_RESERVED_FLAGS), --mount (binds
-# a host folder into the VM) and --skills readwrite (the agent could write
-# skills your host agent loads).
+# a host folder into the VM), --skills readwrite (the agent could write
+# skills your host agent loads), and a local path for --kit,
+# --kit-args-file or --env-file that's missing or inside a sandbox folder
+# (check_path_flag in profiles.sh). Paths can't contain spaces: the flags
+# are split on whitespace.
 check_sbx_create_flags() {
+  local label="$1" flags="$2"
   local words=() i=0 word flag val f takes
-  read -r -a words <<< "$SBX_CREATE_FLAGS"
+  read -r -a words <<< "$flags"
   while (( i < ${#words[@]} )); do
     word="${words[i]}"; i=$((i + 1))
     if [[ "$word" != -* ]]; then
-      PROBLEMS+=("SBX_CREATE_FLAGS: '$(safe_text "$word")' isn't a flag, and sbx would mount it as another folder the VM can write -- remove it (for a flag sbx added after this tool, write --flag=value)")
+      PROBLEMS+=("$label: '$(safe_text "$word")' isn't a flag, and sbx would mount it as another folder the VM can write -- remove it (for a flag sbx added after this tool, write --flag=value)")
       continue
     fi
     flag="${word%%=*}" val=""
@@ -135,13 +154,19 @@ check_sbx_create_flags() {
       val="${words[i]}"; i=$((i + 1))
     fi
     for f in "${SBX_RESERVED_FLAGS[@]}"; do
-      [[ "$flag" == "$f" ]] && PROBLEMS+=("SBX_CREATE_FLAGS: '$f' is managed by this tool and can't be passed through")
+      [[ "$flag" == "$f" ]] && PROBLEMS+=("$label: '$f' is managed by this tool and can't be passed through")
     done
     case "$flag" in
       --mount)
-        PROBLEMS+=("SBX_CREATE_FLAGS: --mount binds a host folder into the VM, out of reach of the tool's mount checks -- remove it") ;;
+        PROBLEMS+=("$label: --mount binds a host folder into the VM, out of reach of the tool's mount checks -- remove it") ;;
       --skills)
-        [[ "${val,,}" == readwrite ]] && PROBLEMS+=("SBX_CREATE_FLAGS: --skills readwrite lets the agent write the skills your agent on the host loads -- use readonly or off") ;;
+        [[ "${val,,}" == readwrite ]] && PROBLEMS+=("$label: --skills readwrite lets the agent write the skills your agent on the host loads -- use readonly or off") ;;
+      --kit|--kit-args-file|--env-file)
+        if [[ -z "$val" ]]; then
+          PROBLEMS+=("$label: $flag needs a value")
+        else
+          check_path_flag "$label: $flag" "$flag" "$val"
+        fi ;;
     esac
   done
   return 0

@@ -21,3 +21,8 @@
 # PUSH_AS (.state/<n>-<title>/push_as) and the commits make push sent
 # (.state/<n>-<title>/pushed). Removed by make destroy.
 /.state/
+
+# Your own files for this checkout: agent profiles (agents/<name>.env), local
+# kits and kit args files. No VM mounts it. user-config.example/ (tracked)
+# is the template make init copies.
+/user-config/

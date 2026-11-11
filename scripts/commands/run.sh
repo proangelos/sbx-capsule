@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Start the coding agent (AGENT in .env, default claude) in a Docker Sandbox
-# (sbx) VM on a sandbox, or reattach if its VM already exists. The sandbox
+# Start the coding agent in a Docker Sandbox (sbx) VM on a sandbox, or
+# reattach if its VM already exists. The agent is AGENT=<spec> on the
+# command line, else the sandbox's saved agent, else AGENT in .env (default
+# claude); a spec is a profile (user-config/agents/<name>.env), a built-in
+# sbx agent or a kit reference (choose_agent in scripts/lib/profiles.sh). The sandbox
 # folder is mounted at the same path inside the VM ("direct mode"), so the
 # clones are edited in place on the host.
 #
@@ -10,10 +13,15 @@
 #   FRESH=1                       remove the sandbox's VM first, if it has
 #                                 one, and create a new one from the
 #                                 current .env (make run N=3 FRESH=1)
+#   AGENT=<spec>                  (CLI_AGENT) run this agent, and save it as
+#                                 the sandbox's own, so .env no longer
+#                                 decides it. On a sandbox whose VM runs
+#                                 another agent, needs FRESH=1.
 #
 # The agent is fixed when the VM is created: changing AGENT later only
 # affects new VMs, and reattaching always runs the VM's own agent. Likewise
-# SBX_CREATE_FLAGS only applies at creation. FRESH=1 recreates the VM to
+# SBX_CREATE_FLAGS and a profile's CREATE_FLAGS only apply at creation; a
+# profile's ARGS apply on every run. FRESH=1 recreates the VM to
 # pick up either: the sandbox's files are on the host and stay, while the
 # agent's history and anything else inside the old VM go. The VM is only
 # removed once every check below has passed.
@@ -49,6 +57,7 @@ have_sbx || die "sbx (Docker Sandboxes) isn't installed -- see docs/DOCKER_SANDB
 PROBLEMS=()
 check_agent_config
 check_host_exposure
+choose_agent "$sandbox_dir" || true
 # The sandbox's VM is the one named after it that mounts it (sandbox_vm);
 # a VM that only has its name is someone else's, and would make creating
 # one fail.
@@ -71,9 +80,16 @@ if [[ -n "${FRESH:-}" ]]; then
   vm_exists=""
 fi
 [[ -n "$vm_exists" ]] || vscode_dir_problems "$sandbox_dir"
-mounts=("$sandbox_dir")
+# A VM keeps the agent it was created with, so naming another needs a new one.
+if [[ -n "$vm_exists" && -n "${CLI_AGENT:-}" && "$CLI_AGENT" != "${SANDBOX_AGENT:-$AGENT}" ]]; then
+  PROBLEMS+=("sandbox $n's VM runs $(safe_text "${SANDBOX_AGENT:-$AGENT}"), and a VM keeps the agent it was created with. To switch to $(safe_text "$CLI_AGENT"), recreate it (the sandbox's files stay; the agent's history inside the VM goes): make run N=$n AGENT=$(safe_text "$CLI_AGENT") FRESH=1")
+fi
 report_problems "can't start sandbox $n:"
 validate_config warn
+# validate_config resolved .env's AGENT (resolve_agent); the sandbox's own
+# may differ, and passed the checks above.
+PROBLEMS=()
+choose_agent "$sandbox_dir" || true
 
 if [[ -n "$fresh" ]]; then
   echo "Removing ${C_BOLD}$name${C_RESET} to create it again (the sandbox's files stay; the agent's history inside the VM goes)"
@@ -86,12 +102,12 @@ elif [[ -n "${FRESH:-}" ]]; then
   echo "note: sandbox $n has no VM yet, so FRESH=1 has nothing to remove."
 fi
 
-# agent_args <agent>  -- fills AGENT_ARGV: AGENT_ARGS[<agent>] from .env,
-# then ARGS from the command line.
+# agent_args  -- fills AGENT_ARGV: RUN_ARGS (the profile's ARGS, or
+# AGENT_ARGS[<agent>] from .env), then ARGS from the command line.
 agent_args() {
   local extra=()
   AGENT_ARGV=()
-  [[ -n "${AGENT_ARGS[$1]:-}" ]] && read -r -a AGENT_ARGV <<< "${AGENT_ARGS[$1]}"
+  [[ -n "$RUN_ARGS" ]] && read -r -a AGENT_ARGV <<< "$RUN_ARGS"
   [[ -n "${ARGS:-}" ]] && read -r -a extra <<< "$ARGS"
   AGENT_ARGV+=(${extra[@]+"${extra[@]}"})
 }
@@ -103,27 +119,38 @@ warn_without_terminal() {
 }
 
 if [[ -n "$vm_exists" ]]; then
-  [[ -z "$SBX_CREATE_FLAGS" ]] || echo "note: SBX_CREATE_FLAGS only applies when a VM is created; $name already exists. To apply it: make run N=$n FRESH=1"
+  # AGENT= naming the agent the VM already runs: keep it as the sandbox's own.
+  [[ -n "${CLI_AGENT:-}" && -z "$SANDBOX_AGENT" ]] && save_agent "$sandbox_dir" "$CLI_AGENT"
+  [[ -z "$SBX_CREATE_FLAGS$RUN_CREATE_FLAGS" ]] || echo "note: SBX_CREATE_FLAGS${RUN_PROFILE:+ and the CREATE_FLAGS of profile $RUN_PROFILE} only apply when a VM is created; $name already exists. To apply them: make run N=$n FRESH=1"
   new_name="$(sbx_name "$sandbox_dir")"
   [[ "$name" == "$new_name" ]] || echo "note: $name keeps the name it was created with; new VMs are named like $new_name (SBX_NAME_PREFIX). To rename it, recreate it: make run N=$n FRESH=1"
+  # What sbx reports for a VM made from a kit isn't a built-in name, so only
+  # a built-in can be compared; then its own AGENT_ARGS apply.
   vm_agent="$(sbx_agent_of "$name")"
-  if [[ -n "$vm_agent" ]] && is_builtin_agent "$AGENT" && [[ "$vm_agent" != "$AGENT" ]]; then
-    warn "$name was created with $vm_agent, but AGENT is now $AGENT -- reattaching to $vm_agent. To switch, recreate the VM (the sandbox's files stay; the agent's history inside the VM goes): make run N=$n FRESH=1"
+  if [[ -n "$vm_agent" ]] && is_builtin_agent "$vm_agent" && [[ "$vm_agent" != "$RUN_AGENT" ]]; then
+    warn "$name was created with $vm_agent, but $AGENT_FROM is now $(run_agent_label) -- reattaching to $vm_agent. To switch, recreate the VM (the sandbox's files stay; the agent's history inside the VM goes): make run N=$n FRESH=1"
+    RUN_ARGS="${AGENT_ARGS[$vm_agent]:-}"
+  elif profile_changed "$sandbox_dir"; then
+    echo "note: $(profile_file "$RUN_PROFILE") changed since $name was created: its ARGS apply now, its AGENT and CREATE_FLAGS only to a new VM (make run N=$n FRESH=1)"
   fi
-  agent_args "${vm_agent:-$AGENT}"
+  agent_args
   echo "Reattaching to ${C_BOLD}$name${C_RESET}${vm_agent:+ ($vm_agent)}"
   warn_without_terminal
   exec sbx run --name "$name" ${AGENT_ARGV[@]+-- "${AGENT_ARGV[@]}"}
 fi
 
 # The sandbox's VS Code workspace settings, mounted read-only so the agent
-# can't switch credential and port forwarding back on (make code).
-ensure_vscode_dir "$sandbox_dir" || die "couldn't write $sandbox_dir/.vscode/settings.json"
-mounts+=("$sandbox_dir/.vscode:ro")
-
-create_flags=()
-[[ -n "$SBX_CREATE_FLAGS" ]] && read -r -a create_flags <<< "$SBX_CREATE_FLAGS"
-agent_args "$AGENT"
-echo "Creating ${C_BOLD}$name${C_RESET} ($AGENT) on $sandbox_dir"
+# can't switch credential and port forwarding back on (make code); same
+# workspaces and create flags as make code (vm_create_args in agents.sh).
+vm_create_args "$sandbox_dir" || die "couldn't write $sandbox_dir/.vscode/settings.json"
+sbx_agent="$RUN_AGENT"
+is_kit_ref "$sbx_agent" && is_local_ref "$sbx_agent" && sbx_agent="$(tool_path "$sbx_agent")"
+agent_args
+# AGENT= on the command line becomes the sandbox's own agent.
+[[ -n "${CLI_AGENT:-}" ]] && save_agent "$sandbox_dir" "$CLI_AGENT"
+save_profile_sum "$sandbox_dir"
+[[ -z "$RUN_CREDENTIALS" ]] \
+  || echo "note: profile $RUN_PROFILE uses these sbx secrets: $RUN_CREDENTIALS. Set any that are missing on the host: sbx secret set <name> (the VM only sees a placeholder)"
+echo "Creating ${C_BOLD}$name${C_RESET} ($(run_agent_label)) on $sandbox_dir"
 warn_without_terminal
-exec sbx run --name "$name" ${create_flags[@]+"${create_flags[@]}"} "$AGENT" "${mounts[@]}" ${AGENT_ARGV[@]+-- "${AGENT_ARGV[@]}"}
+exec sbx run --name "$name" ${CREATE_ARGV[@]+"${CREATE_ARGV[@]}"} "$sbx_agent" "${VM_WORKSPACES[@]}" ${AGENT_ARGV[@]+-- "${AGENT_ARGV[@]}"}

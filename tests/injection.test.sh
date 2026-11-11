@@ -217,6 +217,8 @@ test_make_variables_are_not_shell_code() {
     mk push N=1 REPO=api AS="$v"
     mk new WITH="$v" TITLE="$v" PUSH_AS="$v"
     mk run N=1 ARGS="$v"
+    mk new AGENT="$v"
+    mk run N=1 AGENT="$v"
   done
   assert_missing "no value ran as shell code" "$marker"
 }

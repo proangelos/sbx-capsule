@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# List this checkout's sandboxes, each with its repos and the state of its
-# Docker Sandbox (sbx) VM, then any VMs left over from sandboxes that are
-# gone. Read-only. Only VMs this tool made for this checkout are shown
+# List this checkout's sandboxes, each with its repos, the state of its
+# Docker Sandbox (sbx) VM and its own agent if it has one (saved by AGENT=
+# on make new or make run; "-" follows AGENT in .env), then any VMs left
+# over from sandboxes that are gone. Read-only. Only VMs this tool made for this checkout are shown
 # (tool_vms in scripts/lib/agents.sh), never other sbx VMs on the machine.
 #
 # Usage: scripts/commands/list.sh        (or: make list)
@@ -36,7 +37,7 @@ done < <(for d in "$SANDBOX_ROOT"/*/; do
 if (( ${#dirs[@]} == 0 )); then
   echo "No sandboxes yet. Make one with: make new WITH=\"<repo> ...\""
 else
-  printf '%s%-4s %-28s %-20s %s%s\n' "$C_BOLD" N FOLDER VM REPOS "$C_RESET"
+  printf '%s%-4s %-28s %-20s %-14s %s%s\n' "$C_BOLD" N FOLDER VM AGENT REPOS "$C_RESET"
   for folder in "${dirs[@]}"; do
     d="$SANDBOX_ROOT/$folder"
     # Repo folders are the agent's to name, so they're printed safely.
@@ -56,7 +57,8 @@ else
     # Padded before coloring, so the escape codes don't throw off the column.
     printf -v vm '%-20s' "$vm"
     [[ -n "$name" && "${vm_status[$name]}" == running ]] && vm="${C_GREEN}$vm${C_RESET}"
-    printf '%-4s %-28s %s %s\n' "${folder%%-*}" "$folder" "$vm" "${repos[*]:--}"
+    read_saved_agent "$d"
+    printf '%-4s %-28s %s %-14s %s\n' "${folder%%-*}" "$folder" "$vm" "$(safe_text "${SANDBOX_AGENT:--}")" "${repos[*]:--}"
   done
 fi
 

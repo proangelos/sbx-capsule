@@ -16,6 +16,14 @@ TARGET_VARS := N REPO WITH TITLE PUSH_AS EMPTY ARGS FRESH ALL YES AS FORCE TEST_
 $(foreach v,$(TARGET_VARS),$(eval $(v) ?=))
 export $(TARGET_VARS)
 
+# AGENT=<profile or agent> picks a sandbox's own agent (make new, make run).
+# It reaches the scripts as CLI_AGENT, and only from the command line: an
+# AGENT in your shell's environment never counts, and .env's AGENT (read
+# later, by the scripts) is a different setting. Like every variable here,
+# it reaches the scripts through the environment, never as recipe text.
+CLI_AGENT := $(if $(filter command line,$(origin AGENT)),$(value AGENT))
+export CLI_AGENT
+
 .PHONY: help init doctor new list run code stop prune add fetch push destroy test
 .DEFAULT_GOAL := help
 
@@ -40,19 +48,24 @@ doctor: ## Check your tools, sbx, .env and repos, and say how to fix anything wr
 # make new WITH="api web" PUSH_AS=fix-auth-bug         work on branch fix-auth-bug, pushing to origin/fix-auth-bug
 # make new EMPTY=1                                     no repos, even with DEFAULT_REPOS set; make add brings them in later
 #                                                      (with no WITH and no DEFAULT_REPOS, plain make new does the same)
-new: ## Create a new numbered sandbox of clones (WITH="repo repo:branch ...", TITLE=name, PUSH_AS=branch-name, EMPTY=1)
+# make new WITH=api AGENT=pi                           the sandbox's own agent: profile user-config/agents/pi.env
+#                                                      (or a built-in agent or kit ref), kept whatever .env's AGENT says
+new: ## Create a new numbered sandbox of clones (WITH="repo repo:branch ...", TITLE=name, PUSH_AS=branch-name, EMPTY=1, AGENT=profile)
 	@"$(CMD)/create.sh"
 
 # Only this checkout's sandboxes and the VMs it made; never other sbx VMs.
 list: ## List sandboxes, their repos and the state of their VMs
 	@"$(CMD)/list.sh"
 
-# The agent is AGENT in your .env (default claude), fixed when the VM is created.
+# The agent is the sandbox's own (AGENT= given to make new or make run), else AGENT in your
+# .env (default claude); either is fixed when the VM is created.
 # make run N=3                      start the agent in the sandbox's sbx VM, or reattach
-# make run N=3 ARGS="--continue"    extra arguments for the agent (after AGENT_ARGS in .env)
+# make run N=3 ARGS="--continue"    extra arguments for the agent (after its profile's ARGS or AGENT_ARGS)
 # make run N=3 FRESH=1              recreate the VM from the current .env (AGENT, SBX_CREATE_FLAGS);
 #                                   the sandbox's files stay, the agent's history inside the VM goes
-run: ## Start or reattach the agent in a sandbox's Docker Sandbox VM (make run N=<n> [ARGS="..."] [FRESH=1])
+# make run N=3 AGENT=pi             run profile pi (or a built-in agent or kit ref) and keep it as the
+#                                   sandbox's own; on a VM made with another agent, add FRESH=1
+run: ## Start or reattach the agent in a sandbox's Docker Sandbox VM (make run N=<n> [ARGS="..."] [FRESH=1] [AGENT=profile])
 	@test -n "$$N" || { echo "usage: make run N=<sandbox number>" >&2; exit 1; }
 	@"$(CMD)/run.sh" "$$N"
 

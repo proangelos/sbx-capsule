@@ -214,6 +214,26 @@ sbx_agent_of() {
   fi
 }
 
+# vm_create_args <sandbox_dir>  -- for a VM that doesn't exist yet, made by
+# make run (sbx run, which then attaches the agent) or make code (sbx
+# create, which doesn't). Writes the sandbox's .vscode settings first
+# (ensure_vscode_dir), then sets VM_WORKSPACES, the sandbox folder and its
+# .vscode read-only, and CREATE_ARGV, .env's SBX_CREATE_FLAGS then the
+# resolved agent's CREATE_FLAGS (profile), with relative kit and file paths
+# taken from the tool's folder (resolve_create_flags in profiles.sh). Call
+# it after choose_agent, so RUN_CREATE_FLAGS holds the agent's flags. Both
+# commands pass the same ones, so the VM is the same either way. Returns 1
+# if the settings can't be written.
+vm_create_args() {
+  VM_WORKSPACES=("$1")
+  CREATE_ARGV=()
+  ensure_vscode_dir "$1" || return 1
+  VM_WORKSPACES+=("$1/.vscode:ro")
+  resolve_create_flags "$SBX_CREATE_FLAGS"
+  resolve_create_flags "${RUN_CREATE_FLAGS:-}"
+  return 0
+}
+
 # The agents sbx has built in (`sbx run --help`, v0.50.1 and v0.51.0). AGENT may also be
 # an sbx kit reference instead -- see is_kit_ref.
 SBX_AGENTS=(claude codex copilot cursor devin docker-agent droid gemini kiro opencode shell)
